@@ -1,0 +1,24 @@
+[
+  {
+    "orderId": "ORD-783305",
+    "customerName": "Sardar Huzaifa",
+    "phone": "03145727039",
+    "pickupTime": "19:15",
+    "tableNumber": "N/A",
+    "notes": "",
+    "items": [
+      {
+        "id": "pasta-1",
+        "category": "Pastas",
+        "name": "Fettuccine Alfredo",
+        "price": 14.99,
+        "description": "Rich, velvet fettuccine tossed in dynamic parmesan-garlic cream, finished with fresh cracked pepper.",
+        "image": "https://images.unsplash.com/photo-1645112411341-6c4fd023714a?auto=format&fit=crop&w=600&q=80",
+        "quantity": 2
+      }
+    ],
+    "totalAmount": 33.3684,
+    "createdAt": "2026-07-31T13:16:23.305Z",
+    "status": "Received"
+  }
+]

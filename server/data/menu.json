@@ -1,0 +1,58 @@
+[
+  {
+    "id": "pasta-1",
+    "category": "Pastas",
+    "name": "Fettuccine Alfredo",
+    "price": 14.99,
+    "description": "Rich, velvet fettuccine tossed in dynamic parmesan-garlic cream, finished with fresh cracked pepper.",
+    "image": "https://images.unsplash.com/photo-1645112411341-6c4fd023714a?auto=format&fit=crop&w=600&q=80"
+  },
+  {
+    "id": "pasta-2",
+    "category": "Pastas",
+    "name": "Creamy Pesto Pasta",
+    "price": 15.49,
+    "description": "Penne dressed in vibrant sweet basil pesto, baby spinach, roasted pine nuts, and shaved pecorino romano.",
+    "image": "https://images.unsplash.com/photo-1473093295043-cdd812d0e601?auto=format&fit=crop&w=600&q=80"
+  },
+  {
+    "id": "pasta-3",
+    "category": "Pastas",
+    "name": "Spicy Arrabbiata Pasta",
+    "price": 13.99,
+    "description": "Fiery red pepper flakes, slow-cooked San Marzano tomatoes, and garlic tossed with fresh al dente rigatoni.",
+    "image": "https://images.unsplash.com/photo-1563379971899-660589a01cf3?auto=format&fit=crop&w=600&q=80"
+  },
+  {
+    "id": "burger-1",
+    "category": "Burgers",
+    "name": "Classic Beef Burger",
+    "price": 12.99,
+    "description": "Juicy smashed beef patty, cheddar, heirloom tomato, crisp bibb lettuce, and secret house spread on brioche.",
+    "image": "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=600&q=80"
+  },
+  {
+    "id": "burger-2",
+    "category": "Burgers",
+    "name": "Crispy Chicken Burger",
+    "price": 13.49,
+    "description": "Golden buttermilk-fried chicken breast, creamy jalapeño slaw, and spicy pickles on a toasted bun.",
+    "image": "https://images.unsplash.com/photo-1625813506062-0aeb1d7a094b?auto=format&fit=crop&w=600&q=80"
+  },
+  {
+    "id": "pizza-1",
+    "category": "Pizzas",
+    "name": "Pepperoni Pizza",
+    "price": 16.99,
+    "description": "Artisanal thin crust topped with signature marinara, fresh whole-milk mozzarella, and crispy cupped pepperoni.",
+    "image": "https://images.unsplash.com/photo-1628840042765-356cda07504e?auto=format&fit=crop&w=600&q=80"
+  },
+  {
+    "id": "pizza-2",
+    "category": "Pizzas",
+    "name": "Margherita Pizza",
+    "price": 14.99,
+    "description": "The Italian classic. Vine-ripened tomatoes, fresh handmade mozzarella curls, sweet basil, and extra virgin olive oil.",
+    "image": "https://images.unsplash.com/photo-1574071318508-1cdbab80d002?auto=format&fit=crop&w=600&q=80"
+  }
+]
