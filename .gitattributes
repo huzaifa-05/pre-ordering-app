@@ -1,0 +1,6 @@
+# Shell scripts must always use Unix line endings
+*.sh text eol=lf
+
+# YAML files should also use Unix line endings
+*.yml text eol=lf
+*.yaml text eol=lf

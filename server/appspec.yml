@@ -1,0 +1,37 @@
+version: 0.0
+os: linux
+
+# Copy the deployment bundle onto EC2
+files:
+  - source: /
+    destination: /opt/preordering-backend
+    overwrite: true
+
+# Ensure the deployment scripts can execute
+permissions:
+  - object: /opt/preordering-backend/deployment
+    pattern: "**"
+    owner: ec2-user
+    group: ec2-user
+    mode: 755
+    type:
+      - file
+
+hooks:
+  # Stop and remove the currently running container
+  ApplicationStop:
+    - location: deployment/stop.sh
+      timeout: 300
+      runas: ec2-user
+
+  # Authenticate with ECR and pull the exact image
+  AfterInstall:
+    - location: deployment/install.sh
+      timeout: 300
+      runas: ec2-user
+
+  # Retrieve secrets and start the new container
+  ApplicationStart:
+    - location: deployment/start.sh
+      timeout: 300
+      runas: ec2-user

@@ -1,0 +1,75 @@
+version: 0.2
+
+# Values used to build the ECR image URI
+env:
+  variables:
+    AWS_DEFAULT_REGION: us-west-2
+    AWS_ACCOUNT_ID: "395063533284"
+    ECR_REPOSITORY: preordering-backend
+
+phases:
+  install:
+    commands:
+      - echo "========== INSTALL PHASE =========="
+      - docker --version
+      - aws --version
+
+  pre_build:
+    commands:
+      - echo "========== PRE-BUILD PHASE =========="
+
+      # Build the ECR registry and repository URI
+      - export ECR_REGISTRY="$AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com"
+      - export ECR_REPOSITORY_URI="$ECR_REGISTRY/$ECR_REPOSITORY"
+
+      # Authenticate Docker with Amazon ECR
+      - echo "Logging in to Amazon ECR..."
+      - aws ecr get-login-password --region "$AWS_DEFAULT_REGION" | docker login --username AWS --password-stdin "$ECR_REGISTRY"
+
+      # Use the first 7 characters of the Git commit SHA
+      - export IMAGE_TAG="$(echo "$CODEBUILD_RESOLVED_SOURCE_VERSION" | cut -c 1-7)"
+
+      # Create the complete immutable image URI
+      - export IMAGE_URI="$ECR_REPOSITORY_URI:$IMAGE_TAG"
+
+      # Display non-sensitive build information
+      - echo "Image tag is $IMAGE_TAG"
+      - echo "Image URI is $IMAGE_URI"
+
+  build:
+    commands:
+      - echo "========== BUILD PHASE =========="
+
+      # Build using server/Dockerfile and server/ as the build context
+      - docker build -f server/Dockerfile -t "$IMAGE_URI" server
+
+  post_build:
+    commands:
+      - echo "========== POST-BUILD PHASE =========="
+
+      # Push the exact commit-tagged image to ECR
+      - docker push "$IMAGE_URI"
+
+      # Ensure the deployment folder exists
+      - mkdir -p server/deployment
+
+      # Generate metadata that CodeDeploy scripts will read
+      - |
+        cat > server/deployment/image.json <<EOF
+        {
+          "imageUri": "$IMAGE_URI",
+          "imageTag": "$IMAGE_TAG"
+        }
+        EOF
+
+      # Verify the generated deployment metadata
+      - echo "Generated server/deployment/image.json"
+      - cat server/deployment/image.json
+
+artifacts:
+  # Makes appspec.yml appear at the root of the build artifact
+  base-directory: server
+
+  files:
+    - appspec.yml
+    - deployment/**/*
