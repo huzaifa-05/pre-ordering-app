@@ -1,0 +1,75 @@
+version: 0.2
+
+# Environment variables used during deployment.
+env:
+  variables:
+    S3_BUCKET: pre-ordering-app-bucket
+    CLOUDFRONT_DISTRIBUTION_ID: EBW5N96ZIW8RA
+
+phases:
+  install:
+    runtime-versions:
+      nodejs: 20
+
+    commands:
+      - echo "========== INSTALL PHASE =========="
+      - node --version
+      - npm --version
+
+  pre_build:
+    commands:
+      - echo "========== PRE-BUILD PHASE =========="
+
+      # Move to the frontend application.
+      - cd frontend
+
+      # Install dependencies from package-lock.json.
+      - npm ci
+
+  build:
+    commands:
+      - echo "========== BUILD PHASE =========="
+
+      # Build the production React application.
+      - npm run build
+
+      # Ensure the build completed successfully.
+      - test -f dist/index.html
+
+  post_build:
+    commands:
+      - echo "========== DEPLOY PHASE =========="
+
+      # Upload versioned JS/CSS assets.
+      - |
+        aws s3 sync dist/assets/ s3://$S3_BUCKET/assets/ \
+          --delete \
+          --cache-control "public,max-age=31536000,immutable"
+
+      # Upload index.html without long-term caching.
+      - |
+        aws s3 cp dist/index.html \
+          s3://$S3_BUCKET/index.html \
+          --content-type "text/html" \
+          --cache-control "no-cache,no-store,must-revalidate"
+
+      # Upload remaining files (favicon, manifest, etc.).
+      - |
+        aws s3 sync dist/ s3://$S3_BUCKET/ \
+          --delete \
+          --exclude "assets/*" \
+          --exclude "index.html"
+
+      # Refresh CloudFront so users receive the latest index.html.
+      - |
+        aws cloudfront create-invalidation \
+          --distribution-id $CLOUDFRONT_DISTRIBUTION_ID \
+          --paths "/" "/index.html"
+
+      - echo "Frontend deployment completed successfully."
+
+# Output artifact for CodePipeline.
+artifacts:
+  base-directory: frontend/dist
+  files:
+    - "**/*"
