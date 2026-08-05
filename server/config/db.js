@@ -18,6 +18,7 @@ const dbConfig = {
   waitForConnections: true,
   connectionLimit: 10,
   queueLimit: 0,
+  connectTimeout: 2000,
 };
 
 let pool = null;
@@ -38,7 +39,7 @@ export const checkDbConnection = async () => {
     connection.release();
     isDbConnected = true;
     return true;
-  } catch (error) {
+  } catch {
     isDbConnected = false;
     return false;
   }

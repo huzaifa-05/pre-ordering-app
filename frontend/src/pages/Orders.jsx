@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   ClipboardList, Loader, AlertCircle, RefreshCw,
-  Clock, MapPin, StickyNote, CheckCircle, Package,
+  Clock, StickyNote, CheckCircle, Package,
 } from 'lucide-react';
 import { getOrders } from '../services/api.js';
 

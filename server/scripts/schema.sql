@@ -26,9 +26,8 @@ CREATE TABLE IF NOT EXISTS users (
     password_hash VARCHAR(255) NOT NULL,
     full_name VARCHAR(150) NOT NULL,
     phone VARCHAR(30),
-    role_id INT NOT NULL DEFAULT 1,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT fk_users_role FOREIGN KEY (role_id) REFERENCES roles(id)
+    role VARCHAR(50) NOT NULL DEFAULT 'customer',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 -- =============================================================
@@ -49,13 +48,12 @@ CREATE TABLE IF NOT EXISTS categories (
 
 CREATE TABLE IF NOT EXISTS menu_items (
     id VARCHAR(50) PRIMARY KEY,
-    category_id INT NOT NULL,
+    category VARCHAR(50) NOT NULL,
     name VARCHAR(100) NOT NULL,
     price DECIMAL(10,2) NOT NULL,
     description TEXT NOT NULL,
     image VARCHAR(255) NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT fk_menu_items_category FOREIGN KEY (category_id) REFERENCES categories(id)
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 -- =============================================================
@@ -76,21 +74,12 @@ CREATE TABLE IF NOT EXISTS statuses (
 
 CREATE TABLE IF NOT EXISTS orders (
     order_id VARCHAR(50) PRIMARY KEY,
-    user_id INT NOT NULL,
+    user_id VARCHAR(100) NOT NULL,
     pickup_time VARCHAR(50),
     notes TEXT,
     total_amount DECIMAL(10,2) NOT NULL,
-    status_id INT NOT NULL DEFAULT 1,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT fk_orders_user
-        FOREIGN KEY (user_id)
-        REFERENCES users(id)
-        ON DELETE CASCADE,
-    CONSTRAINT fk_orders_status
-        FOREIGN KEY (status_id)
-        REFERENCES statuses(id)
-);
-
+    status VARCHAR(50) NOT NULL DEFAULT 'Received',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 -- =============================================================

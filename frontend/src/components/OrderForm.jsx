@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Clock, MapPin, StickyNote, User, CheckCircle, Loader, ShieldCheck } from 'lucide-react';
+import { X, Clock, StickyNote, User, CheckCircle, Loader, ShieldCheck } from 'lucide-react';
 import { createOrder } from '../services/api.js';
 
 /**

@@ -2,11 +2,10 @@ import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import path from 'path';
-import bcrypt from 'bcryptjs';
-import jwt from 'jsonwebtoken';
+import fs from 'fs';
 import { fileURLToPath } from 'url';
-import pool, { checkDbConnection } from './config/db.js';
-import { verifyAuth } from './middleware/auth.js';
+import pool, { checkDbConnection, getIsDbConnected } from './config/db.js';
+import { requireAuth, verifyAuth } from './middleware/auth.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -16,7 +15,7 @@ dotenv.config({ path: path.join(__dirname, '.env') });
 
 const app = express();
 const PORT = process.env.PORT || 5000;
-const JWT_SECRET = process.env.JWT_SECRET || 'super_secret_jwt_key_pre_ordering_app_2026';
+const MENU_JSON_PATH = path.join(__dirname, 'data', 'menu.json');
 
 // Middleware
 app.use(cors());
@@ -26,14 +25,7 @@ app.use(verifyAuth);
 // Helper to generate short unique order ID
 const generateOrderId = () => `ORD-${Date.now().toString().slice(-6)}`;
 
-// Helper to sign JWT token
-const generateToken = (user) => {
-  return jwt.sign(
-    { id: user.id, email: user.email, full_name: user.full_name, role: user.role },
-    JWT_SECRET,
-    { expiresIn: '7d' }
-  );
-};
+const getLocalMenu = () => JSON.parse(fs.readFileSync(MENU_JSON_PATH, 'utf8'));
 
 // ─────────────────────────────────────────────
 // 1. GET /api/health
@@ -52,13 +44,19 @@ app.get('/api/health', async (req, res) => {
 // ─────────────────────────────────────────────
 app.get('/api/menu', async (req, res) => {
   try {
+    if (!pool || !getIsDbConnected()) {
+      const menu = getLocalMenu();
+      return res.json({ success: true, count: menu.length, source: 'local-fallback', data: menu });
+    }
+
     const [rows] = await pool.query(
       'SELECT id, category, name, price, description, image FROM menu_items ORDER BY category, id'
     );
     res.json({ success: true, count: rows.length, data: rows });
   } catch (err) {
-    console.error('[GET /api/menu]', err.message);
-    res.status(500).json({ success: false, error: 'Failed to fetch menu items' });
+    console.warn('[GET /api/menu] Using local menu fallback:', err.message);
+    const menu = getLocalMenu();
+    res.json({ success: true, count: menu.length, source: 'local-fallback', data: menu });
   }
 });
 
@@ -66,139 +64,15 @@ app.get('/api/menu', async (req, res) => {
 // 3. AUTHENTICATION ENDPOINTS
 // ─────────────────────────────────────────────
 
-// POST /api/auth/signup - Register new user with email & password
-app.post('/api/auth/signup', async (req, res) => {
-  try {
-    const { email, password, full_name, phone } = req.body;
-
-    if (!email || !password || !full_name) {
-      return res.status(400).json({
-        success: false,
-        error: 'Email, password, and full name are required',
-      });
-    }
-
-    if (password.length < 6) {
-      return res.status(400).json({
-        success: false,
-        error: 'Password must be at least 6 characters long',
-      });
-    }
-
-    // Check if email already exists
-    const [existing] = await pool.execute('SELECT id FROM users WHERE email = ?', [email]);
-    if (existing.length > 0) {
-      return res.status(409).json({ success: false, error: 'An account with this email already exists' });
-    }
-
-    // Hash password
-    const salt = await bcrypt.genSalt(10);
-    const password_hash = await bcrypt.hash(password, salt);
-
-    // Insert user into MySQL
-    const [result] = await pool.execute(
-      `INSERT INTO users (email, password_hash, full_name, phone) VALUES (?, ?, ?, ?)`,
-      [email, password_hash, full_name, phone || null]
-    );
-
-    const user = {
-      id: result.insertId,
-      email,
-      full_name,
-      phone: phone || null,
-      role: 'customer',
-    };
-
-    const token = generateToken(user);
-
-    res.status(201).json({
-      success: true,
-      message: 'Account created successfully',
-      token,
-      user,
-    });
-  } catch (err) {
-    console.error('[POST /api/auth/signup]', err.message);
-    res.status(500).json({ success: false, error: 'Registration failed. Please try again.' });
-  }
-});
-
-// POST /api/auth/login - Authenticate user with email & password
-app.post('/api/auth/login', async (req, res) => {
-  try {
-    const { email, password } = req.body;
-
-    if (!email || !password) {
-      return res.status(400).json({ success: false, error: 'Email and password are required' });
-    }
-
-    // Find user by email
-    const [rows] = await pool.execute(
-      'SELECT id, email, password_hash, full_name, phone, role FROM users WHERE email = ?',
-      [email]
-    );
-
-    if (rows.length === 0) {
-      return res.status(401).json({ success: false, error: 'Invalid email or password' });
-    }
-
-    const user = rows[0];
-
-    // Verify password
-    const isMatch = await bcrypt.compare(password, user.password_hash);
-    if (!isMatch) {
-      return res.status(401).json({ success: false, error: 'Invalid email or password' });
-    }
-
-    const userProfile = {
-      id: user.id,
-      email: user.email,
-      full_name: user.full_name,
-      phone: user.phone,
-      role: user.role,
-    };
-
-    const token = generateToken(userProfile);
-
-    res.json({
-      success: true,
-      message: 'Logged in successfully',
-      token,
-      user: userProfile,
-    });
-  } catch (err) {
-    console.error('[POST /api/auth/login]', err.message);
-    res.status(500).json({ success: false, error: 'Login failed. Please try again.' });
-  }
-});
-
 // GET /api/auth/me - Retrieve profile for authenticated user
-app.get('/api/auth/me', async (req, res) => {
-  if (!req.user) {
-    return res.status(401).json({ success: false, error: 'Not authenticated' });
-  }
-
-  try {
-    const [rows] = await pool.execute(
-      'SELECT id, email, full_name, phone, role, created_at FROM users WHERE id = ?',
-      [req.user.id]
-    );
-
-    if (rows.length === 0) {
-      return res.status(404).json({ success: false, error: 'User not found' });
-    }
-
-    res.json({ success: true, user: rows[0] });
-  } catch (err) {
-    console.error('[GET /api/auth/me]', err.message);
-    res.status(500).json({ success: false, error: 'Failed to fetch user profile' });
-  }
+app.get('/api/auth/me', requireAuth, async (req, res) => {
+  res.json({ success: true, user: req.user });
 });
 
 // ─────────────────────────────────────────────
 // 4. POST /api/orders
 // ─────────────────────────────────────────────
-app.post('/api/orders', async (req, res) => {
+app.post('/api/orders', requireAuth, async (req, res) => {
   const { user_id, items, pickupTime, notes, totalAmount } = req.body;
 
   const targetUserId = req.user ? req.user.id : user_id;
@@ -267,7 +141,7 @@ app.post('/api/orders', async (req, res) => {
 // ─────────────────────────────────────────────
 // 5. GET /api/orders
 // ─────────────────────────────────────────────
-app.get('/api/orders', async (req, res) => {
+app.get('/api/orders', requireAuth, async (req, res) => {
   try {
     const [orderRows] = await pool.query(`
       SELECT
@@ -277,11 +151,8 @@ app.get('/api/orders', async (req, res) => {
         o.notes,
         o.total_amount AS totalAmount,
         o.created_at   AS createdAt,
-        u.id           AS userId,
-        u.email,
-        u.full_name
+        o.user_id       AS userId
       FROM orders o
-      JOIN users u ON o.user_id = u.id
       ORDER BY o.created_at DESC
     `);
 
@@ -323,8 +194,8 @@ app.get('/api/orders', async (req, res) => {
       createdAt: o.createdAt,
       user: {
         id: o.userId,
-        email: o.email,
-        full_name: o.full_name,
+        email: null,
+        full_name: o.userId,
       },
       items: itemsByOrder[o.orderId] || [],
     }));
@@ -350,8 +221,6 @@ const server = app.listen(PORT, async () => {
   console.log('📡  Endpoints:');
   console.log(`   GET    /api/health`);
   console.log(`   GET    /api/menu`);
-  console.log(`   POST   /api/auth/signup`);
-  console.log(`   POST   /api/auth/login`);
   console.log(`   GET    /api/auth/me`);
   console.log(`   POST   /api/orders`);
   console.log(`   GET    /api/orders`);

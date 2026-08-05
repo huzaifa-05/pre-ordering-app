@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { X, Lock, Mail, User, Phone, LogIn, UserPlus, Loader, AlertCircle } from 'lucide-react';
-import { login, signup } from '../services/api.js';
+import { X, Lock, Mail, User, Phone, LogIn, UserPlus, Loader, AlertCircle, ShieldCheck } from 'lucide-react';
+import { confirmSignup, login, resendSignupCode, signup } from '../services/api.js';
 
 export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
   const [mode, setMode] = useState('login'); // 'login' | 'signup'
@@ -9,9 +9,11 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
     password: '',
     fullName: '',
     phone: '',
+    confirmationCode: '',
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [message, setMessage] = useState(null);
 
   if (!isOpen) return null;
 
@@ -22,10 +24,15 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError(null);
+    setMessage(null);
     setLoading(true);
 
     try {
       if (mode === 'login') {
+        const res = await login({ email: form.email, password: form.password });
+        onAuthSuccess(res.user);
+      } else if (mode === 'confirm') {
+        await confirmSignup({ email: form.email, code: form.confirmationCode });
         const res = await login({ email: form.email, password: form.password });
         onAuthSuccess(res.user);
       } else {
@@ -35,11 +42,35 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
           full_name: form.fullName,
           phone: form.phone || null,
         });
+        if (res.confirmationRequired) {
+          setMode('confirm');
+          setMessage('Account created. Enter the confirmation code sent by Cognito.');
+          return;
+        }
         onAuthSuccess(res.user);
       }
       onClose();
     } catch (err) {
+      if (err.code === 'UserNotConfirmedException') {
+        setMode('confirm');
+        setMessage('Enter the confirmation code sent by Cognito, then continue.');
+      }
       setError(err.message || 'Authentication failed');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleResendCode = async () => {
+    setError(null);
+    setMessage(null);
+    setLoading(true);
+
+    try {
+      await resendSignupCode(form.email);
+      setMessage('A new confirmation code was sent.');
+    } catch (err) {
+      setError(err.message || 'Could not resend confirmation code');
     } finally {
       setLoading(false);
     }
@@ -56,7 +87,7 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
         <div className="flex items-center justify-between px-6 pt-5 pb-3 border-b border-slate-100">
           <div className="flex items-center gap-3">
             <button
-              onClick={() => { setMode('login'); setError(null); }}
+              onClick={() => { setMode('login'); setError(null); setMessage(null); }}
               className={`font-bold text-lg pb-1 border-b-2 transition-colors ${
                 mode === 'login'
                   ? 'text-orange-500 border-orange-500'
@@ -66,7 +97,7 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
               Sign In
             </button>
             <button
-              onClick={() => { setMode('signup'); setError(null); }}
+              onClick={() => { setMode('signup'); setError(null); setMessage(null); }}
               className={`font-bold text-lg pb-1 border-b-2 transition-colors ${
                 mode === 'signup'
                   ? 'text-orange-500 border-orange-500'
@@ -75,6 +106,11 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
             >
               Create Account
             </button>
+            {mode === 'confirm' && (
+              <span className="font-bold text-lg pb-1 border-b-2 text-orange-500 border-orange-500">
+                Confirm
+              </span>
+            )}
           </div>
           <button
             onClick={onClose}
@@ -93,6 +129,13 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
             </div>
           )}
 
+          {message && (
+            <div className="flex items-center gap-2 bg-green-50 text-green-700 text-xs font-semibold p-3 rounded-xl border border-green-200">
+              <UserPlus className="w-4 h-4 flex-shrink-0" />
+              <span>{message}</span>
+            </div>
+          )}
+
           {mode === 'signup' && (
             <div>
               <label className="block text-xs font-semibold text-slate-600 mb-1" htmlFor="auth-name">
@@ -107,6 +150,28 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
                   required
                   placeholder="Sardar Huzaifa"
                   value={form.fullName}
+                  onChange={handleChange}
+                  className="w-full pl-9 pr-3 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-400"
+                />
+              </div>
+            </div>
+          )}
+
+          {mode === 'confirm' && (
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-1" htmlFor="auth-code">
+                Confirmation Code *
+              </label>
+              <div className="relative">
+                <ShieldCheck className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <input
+                  id="auth-code"
+                  name="confirmationCode"
+                  type="text"
+                  inputMode="numeric"
+                  required
+                  placeholder="123456"
+                  value={form.confirmationCode}
                   onChange={handleChange}
                   className="w-full pl-9 pr-3 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-400"
                 />
@@ -133,25 +198,27 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
             </div>
           </div>
 
-          <div>
-            <label className="block text-xs font-semibold text-slate-600 mb-1" htmlFor="auth-password">
-              Password *
-            </label>
-            <div className="relative">
-              <Lock className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-              <input
-                id="auth-password"
-                name="password"
-                type="password"
-                required
-                minLength={6}
-                placeholder="••••••••"
-                value={form.password}
-                onChange={handleChange}
-                className="w-full pl-9 pr-3 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-400"
-              />
+          {mode !== 'confirm' && (
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-1" htmlFor="auth-password">
+                Password *
+              </label>
+              <div className="relative">
+                <Lock className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <input
+                  id="auth-password"
+                  name="password"
+                  type="password"
+                  required
+                  minLength={6}
+                  placeholder="Password"
+                  value={form.password}
+                  onChange={handleChange}
+                  className="w-full pl-9 pr-3 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-400"
+                />
+              </div>
             </div>
-          </div>
+          )}
 
           {mode === 'signup' && (
             <div>
@@ -182,16 +249,29 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
               <><Loader className="w-4 h-4 animate-spin" /> Processing...</>
             ) : mode === 'login' ? (
               <><LogIn className="w-4 h-4" /> Sign In</>
+            ) : mode === 'confirm' ? (
+              <><ShieldCheck className="w-4 h-4" /> Confirm Account</>
             ) : (
               <><UserPlus className="w-4 h-4" /> Create Account</>
             )}
           </button>
 
+          {mode === 'confirm' && (
+            <button
+              type="button"
+              onClick={handleResendCode}
+              disabled={loading || !form.email}
+              className="w-full border border-slate-200 text-slate-600 hover:text-orange-500 hover:border-orange-300 disabled:opacity-40 font-bold py-3 rounded-xl transition-colors text-sm"
+            >
+              Resend Code
+            </button>
+          )}
+
           <p className="text-center text-xs text-slate-500 pt-2">
             {mode === 'login' ? (
-              <>Don't have an account? <button type="button" onClick={() => { setMode('signup'); setError(null); }} className="text-orange-500 font-bold hover:underline">Sign Up</button></>
+              <>Don't have an account? <button type="button" onClick={() => { setMode('signup'); setError(null); setMessage(null); }} className="text-orange-500 font-bold hover:underline">Sign Up</button></>
             ) : (
-              <>Already have an account? <button type="button" onClick={() => { setMode('login'); setError(null); }} className="text-orange-500 font-bold hover:underline">Sign In</button></>
+              <>Already have an account? <button type="button" onClick={() => { setMode('login'); setError(null); setMessage(null); }} className="text-orange-500 font-bold hover:underline">Sign In</button></>
             )}
           </p>
         </form>
