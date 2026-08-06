@@ -109,3 +109,14 @@ resource "aws_s3_bucket_ownership_controls" "pipeline_artifacts" {
     object_ownership = "BucketOwnerEnforced"
   }
 }
+############################################################################
+# Connects CodePipeline to the GitHub repository.
+# Existing authorized GitHub connection imported into Terraform.
+resource "aws_codeconnections_connection" "github" {
+  name          = "internship-2026-b"
+  provider_type = "GitHub"
+
+  lifecycle {
+    prevent_destroy = true
+  }
+}

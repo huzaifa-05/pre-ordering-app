@@ -12,3 +12,23 @@ output "pipeline_artifact_bucket_name" {
   description = "CodePipeline artifact bucket name."
   value       = aws_s3_bucket.pipeline_artifacts.bucket
 }
+###########################################################
+output "github_connection_arn" {
+  description = "ARN of the GitHub CodeConnection used by CodePipeline."
+  value       = aws_codeconnections_connection.github.arn
+}
+
+output "github_connection_status" {
+  description = "Current status of the GitHub CodeConnection."
+  value       = aws_codeconnections_connection.github.connection_status
+}
+
+output "terraform_codebuild_role_arn" {
+  description = "IAM role used by Terraform CodeBuild projects"
+  value       = aws_iam_role.terraform_codebuild.arn
+}
+
+output "codepipeline_role_arn" {
+  description = "IAM role used by CodePipeline."
+  value       = aws_iam_role.codepipeline.arn
+}
