@@ -32,3 +32,23 @@ output "codepipeline_role_arn" {
   description = "IAM role used by CodePipeline."
   value       = aws_iam_role.codepipeline.arn
 }
+
+output "terraform_validate_plan_project_name" {
+  description = "Terraform validate and plan CodeBuild project name."
+  value       = aws_codebuild_project.terraform_validate_plan.name
+}
+
+output "terraform_apply_project_name" {
+  description = "Terraform apply CodeBuild project name."
+  value       = aws_codebuild_project.terraform_apply.name
+}
+
+output "pipeline_name" {
+  description = "Unified Terraform and application pipeline name."
+  value       = aws_codepipeline.main.name
+}
+
+output "pipeline_arn" {
+  description = "Unified CodePipeline ARN."
+  value       = aws_codepipeline.main.arn
+}

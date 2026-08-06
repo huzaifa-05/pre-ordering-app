@@ -21,3 +21,15 @@ variable "aws_profile" {
   type        = string
   default     = "huzaifa-terraform"
 }
+#################################################################
+variable "github_repository" {
+  description = "GitHub repository used by CodePipeline."
+  type        = string
+  default     = "awabamjad1/internship-program-2026"
+}
+
+variable "github_branch" {
+  description = "GitHub branch used by the dev pipeline."
+  type        = string
+  default     = "feature/pre-ordering-system"
+}
