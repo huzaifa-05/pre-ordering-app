@@ -1,0 +1,27 @@
+version: 0.2
+
+phases:
+  install:
+    commands:
+      - echo "Installing Terraform..."
+      - curl -fsSL -o terraform.zip https://releases.hashicorp.com/terraform/1.15.8/terraform_1.15.8_linux_amd64.zip
+      - unzip -o terraform.zip
+      - mv terraform /usr/local/bin/
+      - terraform version
+
+  pre_build:
+    commands:
+      - cd terraform/environments/dev
+      - aws sts get-caller-identity
+      - terraform init -input=false
+
+  build:
+    commands:
+      - terraform plan -input=false -out=tfplan
+      - terraform show -no-color tfplan | tee tfplan.txt
+
+artifacts:
+  base-directory: terraform/environments/dev
+  files:
+    - tfplan
+    - tfplan.txt

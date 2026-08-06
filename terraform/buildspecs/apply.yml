@@ -1,0 +1,21 @@
+version: 0.2
+
+phases:
+  install:
+    commands:
+      - echo "Installing Terraform..."
+      - curl -fsSL -o terraform.zip https://releases.hashicorp.com/terraform/1.15.8/terraform_1.15.8_linux_amd64.zip
+      - unzip -o terraform.zip
+      - mv terraform /usr/local/bin/
+      - terraform version
+
+  pre_build:
+    commands:
+      - cd "$CODEBUILD_SRC_DIR/terraform/environments/dev"
+      - aws sts get-caller-identity
+      - terraform init -input=false
+      - cp "$CODEBUILD_SRC_DIR_TerraformPlanArtifact/tfplan" ./tfplan
+
+  build:
+    commands:
+      - terraform apply -input=false tfplan

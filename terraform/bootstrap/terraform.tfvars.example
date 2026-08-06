@@ -1,0 +1,6 @@
+aws_region   = "us-west-2"
+aws_profile  = "huzaifa-terraform"
+
+project_name = "pre-ordering-system"
+
+environment  = "dev"
