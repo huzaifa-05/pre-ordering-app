@@ -1,19 +1,17 @@
-# Read the AWS account ID from the credentials currently used by Terraform.
+# Get the current AWS account ID for globally unique bucket names.
 data "aws_caller_identity" "current" {}
 
 locals {
   account_id = data.aws_caller_identity.current.account_id
 
-  terraform_state_bucket_name = "${var.project_name}-tfstate-${local.account_id}"
-
+  terraform_state_bucket_name   = "${var.project_name}-tfstate-${local.account_id}"
   pipeline_artifact_bucket_name = "${var.project_name}-pipeline-artifacts-${local.account_id}"
 }
 
-# Stores Terraform state remotely.
+# Stores Terraform state.
 resource "aws_s3_bucket" "terraform_state" {
   bucket = local.terraform_state_bucket_name
 
-  # Protect the state bucket from accidental terraform destroy.
   lifecycle {
     prevent_destroy = true
   }
@@ -23,7 +21,7 @@ resource "aws_s3_bucket" "terraform_state" {
   }
 }
 
-# Keeps previous state versions for recovery.
+# Enable versioning for Terraform state recovery.
 resource "aws_s3_bucket_versioning" "terraform_state" {
   bucket = aws_s3_bucket.terraform_state.id
 
@@ -32,7 +30,7 @@ resource "aws_s3_bucket_versioning" "terraform_state" {
   }
 }
 
-# Encrypts the Terraform state stored in S3.
+# Encrypt Terraform state at rest.
 resource "aws_s3_bucket_server_side_encryption_configuration" "terraform_state" {
   bucket = aws_s3_bucket.terraform_state.id
 
@@ -43,7 +41,7 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "terraform_state" 
   }
 }
 
-# Prevents public access to the Terraform state bucket.
+# Block public access to Terraform state.
 resource "aws_s3_bucket_public_access_block" "terraform_state" {
   bucket = aws_s3_bucket.terraform_state.id
 
@@ -53,7 +51,7 @@ resource "aws_s3_bucket_public_access_block" "terraform_state" {
   restrict_public_buckets = true
 }
 
-# Disables ACL-based ownership and makes the account own all objects.
+# AWS account owns all Terraform state objects.
 resource "aws_s3_bucket_ownership_controls" "terraform_state" {
   bucket = aws_s3_bucket.terraform_state.id
 
@@ -71,7 +69,7 @@ resource "aws_s3_bucket" "pipeline_artifacts" {
   }
 }
 
-# Keeps previous versions of pipeline artifacts.
+# Enable versioning for pipeline artifacts.
 resource "aws_s3_bucket_versioning" "pipeline_artifacts" {
   bucket = aws_s3_bucket.pipeline_artifacts.id
 
@@ -80,7 +78,7 @@ resource "aws_s3_bucket_versioning" "pipeline_artifacts" {
   }
 }
 
-# Encrypts pipeline artifacts stored in S3.
+# Encrypt pipeline artifacts at rest.
 resource "aws_s3_bucket_server_side_encryption_configuration" "pipeline_artifacts" {
   bucket = aws_s3_bucket.pipeline_artifacts.id
 
@@ -91,7 +89,7 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "pipeline_artifact
   }
 }
 
-# Prevents public access to the pipeline artifact bucket.
+# Block public access to the artifact bucket.
 resource "aws_s3_bucket_public_access_block" "pipeline_artifacts" {
   bucket = aws_s3_bucket.pipeline_artifacts.id
 
@@ -101,22 +99,11 @@ resource "aws_s3_bucket_public_access_block" "pipeline_artifacts" {
   restrict_public_buckets = true
 }
 
-# Makes the AWS account the owner of uploaded pipeline artifacts.
+# AWS account owns all pipeline artifact objects.
 resource "aws_s3_bucket_ownership_controls" "pipeline_artifacts" {
   bucket = aws_s3_bucket.pipeline_artifacts.id
 
   rule {
     object_ownership = "BucketOwnerEnforced"
-  }
-}
-############################################################################
-# Connects CodePipeline to the GitHub repository.
-# Existing authorized GitHub connection imported into Terraform.
-resource "aws_codeconnections_connection" "github" {
-  name          = "internship-2026-b"
-  provider_type = "GitHub"
-
-  lifecycle {
-    prevent_destroy = true
   }
 }

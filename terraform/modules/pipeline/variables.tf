@@ -1,5 +1,5 @@
 variable "project_name" {
-  description = "Project name."
+  description = "Project name used as the AWS resource-name prefix."
   type        = string
 }
 
@@ -9,7 +9,7 @@ variable "environment" {
 }
 
 variable "aws_region" {
-  description = "AWS region for project resources."
+  description = "AWS region for Terraform pipeline resources."
   type        = string
 }
 
@@ -25,5 +25,20 @@ variable "github_branch" {
 
 variable "github_connection_arn" {
   description = "Existing authorized GitHub CodeConnection ARN."
+  type        = string
+}
+
+variable "artifact_bucket_name" {
+  description = "Name of the existing CodePipeline artifact bucket."
+  type        = string
+}
+
+variable "artifact_bucket_arn" {
+  description = "ARN of the existing CodePipeline artifact bucket."
+  type        = string
+}
+
+variable "state_bucket_arn" {
+  description = "ARN of the existing Terraform state bucket."
   type        = string
 }
