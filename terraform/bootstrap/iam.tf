@@ -29,6 +29,41 @@ resource "aws_iam_role" "terraform_codebuild" {
 # ------------------------------------------------------------
 data "aws_iam_policy_document" "terraform_codebuild" {
 
+  # Allows Terraform to create and manage the dev VPC network.
+  statement {
+    sid    = "ManageNetworking"
+    effect = "Allow"
+
+    actions = [
+      "ec2:Describe*",
+      "ec2:CreateVpc",
+      "ec2:DeleteVpc",
+      "ec2:ModifyVpcAttribute",
+      "ec2:CreateSubnet",
+      "ec2:DeleteSubnet",
+      "ec2:ModifySubnetAttribute",
+      "ec2:CreateInternetGateway",
+      "ec2:DeleteInternetGateway",
+      "ec2:AttachInternetGateway",
+      "ec2:DetachInternetGateway",
+      "ec2:AllocateAddress",
+      "ec2:ReleaseAddress",
+      "ec2:CreateNatGateway",
+      "ec2:DeleteNatGateway",
+      "ec2:CreateRouteTable",
+      "ec2:DeleteRouteTable",
+      "ec2:AssociateRouteTable",
+      "ec2:DisassociateRouteTable",
+      "ec2:ReplaceRouteTableAssociation",
+      "ec2:CreateRoute",
+      "ec2:DeleteRoute",
+      "ec2:ReplaceRoute",
+      "ec2:CreateTags",
+      "ec2:DeleteTags"
+    ]
+
+    resources = ["*"]
+  }
   # Allows verification of the IAM identity during pipeline execution.
   statement {
     sid       = "IdentifyBuildRole"
