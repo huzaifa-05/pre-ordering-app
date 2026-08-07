@@ -28,3 +28,27 @@ dist-ssr
 .env.example
 server/.env
 server/.env.example
+
+# Terraform
+.terraform/
+**/.terraform/**
+*.tfstate
+*.tfstate.*
+*.tfplan
+crash.log
+crash.*.log
+!.terraform.lock.hcl
+
+# Terraform variable files
+*.auto.tfvars
+*.auto.tfvars.json
+
+# Terraform CLI config
+.terraformrc
+terraform.rc
+
+# Override files
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
