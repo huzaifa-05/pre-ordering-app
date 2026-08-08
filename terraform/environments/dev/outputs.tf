@@ -47,3 +47,8 @@ output "backend_ecr_repository_url" {
   description = "URL of the backend ECR repository."
   value       = module.ecr.repository_url
 }
+# ALB DNS name
+output "alb_dns_name" {
+  description = "DNS name of the Application Load Balancer."
+  value       = module.alb.alb_dns_name
+}
