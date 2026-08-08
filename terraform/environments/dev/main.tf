@@ -48,3 +48,10 @@ module "security" {
   backend_port              = var.backend_port
   cloudfront_prefix_list_id = data.aws_ec2_managed_prefix_list.cloudfront.id
 }
+# ECR module
+module "ecr" {
+  source = "../../modules/ecr"
+
+  project_name = var.project_name
+  environment  = var.environment
+}

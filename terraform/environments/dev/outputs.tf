@@ -42,3 +42,8 @@ output "private_subnet_ids" {
   description = "Dev private subnet IDs."
   value       = module.networking.private_subnet_ids
 }
+# Backend ECR repository URL
+output "backend_ecr_repository_url" {
+  description = "URL of the backend ECR repository."
+  value       = module.ecr.repository_url
+}

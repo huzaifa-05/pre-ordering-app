@@ -140,10 +140,10 @@ The dev Terraform root currently instantiates these modules:
 - `module.storage`
 - `module.pipeline`
 - `module.networking`
+- `module.security`
 
 The following module directories exist but are not yet wired into `terraform/environments/dev/main.tf`:
 
-- `security`
 - `ecr`
 - `database`
 - `compute`
@@ -351,27 +351,62 @@ Networking was successfully deployed through the Terraform pipeline after resolv
 
 ---
 
-# Scaffolded Terraform Modules
-
-The following module directories exist in the repository, but their Terraform files are currently empty and they are not yet active in the dev root:
-
 ## Security
 
-### Planned Purpose
+### Purpose
 
-Create network security controls for the ALB, backend compute layer, and database layer.
+The Security module creates controlled network access between CloudFront, the Application Load Balancer, backend EC2 instances, and the RDS database.
 
-### Planned AWS Resources
+### AWS Resources Created
 
 - ALB Security Group
 - EC2 Security Group
 - RDS Security Group
+- ALB ingress rule allowing HTTP from the AWS-managed CloudFront origin-facing prefix list
+- EC2 ingress rule allowing backend traffic from the ALB only
+- RDS ingress rule allowing MySQL traffic from EC2 only
+- ALB and EC2 outbound rules
+
+### Terraform Resources Created
+
+- `data.aws_ec2_managed_prefix_list.cloudfront`
+- `aws_security_group.alb`
+- `aws_security_group_rule.alb_ingress_from_cloudfront`
+- `aws_security_group_rule.alb_egress`
+- `aws_security_group.ec2`
+- `aws_security_group_rule.ec2_ingress_from_alb`
+- `aws_security_group_rule.ec2_egress`
+- `aws_security_group.rds`
+- `aws_security_group_rule.rds_ingress_from_ec2`
+
+### Inputs
+
+- `project_name`
+- `environment`
+- `vpc_id`
+- `backend_port`
+- `cloudfront_prefix_list_id`
+
+### Outputs
+
+- `alb_security_group_id`
+- `ec2_security_group_id`
+- `rds_security_group_id`
+
+### Dependencies
+
+- Networking module VPC ID.
+- AWS-managed CloudFront origin-facing prefix list.
 
 ### Current Status
 
-Scaffolded only. Not implemented and not deployed.
+Completed
 
 ---
+
+# Scaffolded Terraform Modules
+
+The following module directories exist in the repository, but their Terraform files are currently empty and they are not yet active in the dev root:
 
 ## ECR
 
@@ -526,7 +561,7 @@ Application code exists. Terraform frontend hosting infrastructure is not yet im
 
 ### Current Status
 
-Application code and deployment scripts exist. Terraform ECR, compute, database, security, and ALB infrastructure are not yet implemented in the active dev root.
+Application code and deployment scripts exist. Terraform ECR, compute, database, and ALB infrastructure are not yet implemented in the active dev root.
 
 ---
 
@@ -553,7 +588,7 @@ Terraform Apply
 
 v
 
-Storage + Networking
+Storage + Networking + Security
 ```
 
 Planned application architecture:
@@ -594,6 +629,10 @@ Pipeline
 v
 
 Networking
+
+v
+
+Security
 ```
 
 Planned full dependency chain:
@@ -642,7 +681,7 @@ Frontend Hosting
 
 # Remaining Modules and Milestones
 
-- [ ] Security
+- [x] Security
 - [ ] ECR
 - [ ] Database
 - [ ] Compute
@@ -801,33 +840,11 @@ Each completed module should be reviewed, validated, deployed, and documented be
 
 # Next Task
 
-The next Terraform module to implement is Security.
+The next Terraform module to implement is ECR.
 
-It will contain:
+It should create the container registry required for the backend Docker image and expose the outputs needed by the backend build and deployment workflow.
 
-- ALB Security Group
-- EC2 Security Group
-- RDS Security Group
-
-Traffic flow:
-
-```text
-Internet
-
-v
-
-ALB
-
-v
-
-Backend EC2
-
-v
-
-RDS
-```
-
-After the Security module is implemented and deployed through the Terraform pipeline, update this `PROJECT_PROGRESS.md` file with:
+After the ECR module is implemented and deployed through the Terraform pipeline, update this `PROJECT_PROGRESS.md` file with:
 
 - Purpose
 - AWS resources created
