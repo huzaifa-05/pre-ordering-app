@@ -23,3 +23,6 @@ availability_zones = [
   "us-west-2a",
   "us-west-2b"
 ]
+
+# Backend application port
+backend_port = 5000

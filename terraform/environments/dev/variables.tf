@@ -47,3 +47,10 @@ variable "availability_zones" {
   description = "Availability Zones used in dev."
   type        = list(string)
 }
+
+# Backend application port
+variable "backend_port" {
+  description = "Port used by the backend application."
+  type        = number
+  default     = 5000
+}
