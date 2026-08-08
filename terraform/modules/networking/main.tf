@@ -1,9 +1,4 @@
-# Use the first two available Availability Zones in the region.
-data "aws_availability_zones" "available" {
-  state = "available"
-}
-
-# Main VPC.
+# Creates the main VPC for the application infrastructure.
 resource "aws_vpc" "main" {
   cidr_block           = var.vpc_cidr
   enable_dns_support   = true
@@ -14,7 +9,7 @@ resource "aws_vpc" "main" {
   }
 }
 
-# Internet access for resources in public subnets.
+# Provides internet connectivity to public subnets.
 resource "aws_internet_gateway" "main" {
   vpc_id = aws_vpc.main.id
 
@@ -23,13 +18,13 @@ resource "aws_internet_gateway" "main" {
   }
 }
 
-# Two public subnets across two Availability Zones.
+# Creates public subnets across multiple Availability Zones.
 resource "aws_subnet" "public" {
   count = length(var.public_subnet_cidrs)
 
   vpc_id                  = aws_vpc.main.id
   cidr_block              = var.public_subnet_cidrs[count.index]
-  availability_zone       = data.aws_availability_zones.available.names[count.index]
+  availability_zone       = var.availability_zones[count.index]
   map_public_ip_on_launch = true
 
   tags = {
@@ -37,13 +32,13 @@ resource "aws_subnet" "public" {
   }
 }
 
-# Two private subnets across two Availability Zones.
+# Creates private subnets across multiple Availability Zones.
 resource "aws_subnet" "private" {
   count = length(var.private_subnet_cidrs)
 
   vpc_id            = aws_vpc.main.id
   cidr_block        = var.private_subnet_cidrs[count.index]
-  availability_zone = data.aws_availability_zones.available.names[count.index]
+  availability_zone = var.availability_zones[count.index]
 
   tags = {
     Name = "${var.project_name}-${var.environment}-private-${count.index + 1}"
@@ -59,7 +54,7 @@ resource "aws_eip" "nat" {
   }
 }
 
-# One NAT Gateway for the dev environment.
+# One NAT Gateway for dev to reduce cost.
 resource "aws_nat_gateway" "main" {
   allocation_id = aws_eip.nat.id
   subnet_id     = aws_subnet.public[0].id
@@ -71,7 +66,7 @@ resource "aws_nat_gateway" "main" {
   }
 }
 
-# Public subnets send internet traffic through the Internet Gateway.
+# Public subnets route internet traffic through the Internet Gateway.
 resource "aws_route_table" "public" {
   vpc_id = aws_vpc.main.id
 
@@ -99,7 +94,7 @@ resource "aws_route_table" "private" {
   }
 }
 
-# Attach the public route table to all public subnets.
+# Associates all public subnets with the public route table.
 resource "aws_route_table_association" "public" {
   count = length(aws_subnet.public)
 
@@ -107,7 +102,7 @@ resource "aws_route_table_association" "public" {
   route_table_id = aws_route_table.public.id
 }
 
-# Attach the private route table to all private subnets.
+# Associates all private subnets with the private route table.
 resource "aws_route_table_association" "private" {
   count = length(aws_subnet.private)
 

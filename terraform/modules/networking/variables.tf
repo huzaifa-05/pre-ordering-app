@@ -1,5 +1,5 @@
 variable "project_name" {
-  description = "Project name used as resource prefix."
+  description = "Project name used as the resource prefix."
   type        = string
 }
 
@@ -20,5 +20,10 @@ variable "public_subnet_cidrs" {
 
 variable "private_subnet_cidrs" {
   description = "CIDR blocks for private subnets."
+  type        = list(string)
+}
+
+variable "availability_zones" {
+  description = "Availability Zones used by the subnets."
   type        = list(string)
 }

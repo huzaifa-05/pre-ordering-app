@@ -27,3 +27,18 @@ output "codepipeline_role_arn" {
   description = "CodePipeline IAM role ARN."
   value       = module.pipeline.codepipeline_role_arn
 }
+
+output "vpc_id" {
+  description = "Dev VPC ID."
+  value       = module.networking.vpc_id
+}
+
+output "public_subnet_ids" {
+  description = "Dev public subnet IDs."
+  value       = module.networking.public_subnet_ids
+}
+
+output "private_subnet_ids" {
+  description = "Dev private subnet IDs."
+  value       = module.networking.private_subnet_ids
+}
