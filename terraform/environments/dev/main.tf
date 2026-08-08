@@ -66,3 +66,22 @@ module "alb" {
   alb_security_group_id = module.security.alb_security_group_id
   backend_port          = var.backend_port
 }
+
+# Compute module
+module "compute" {
+  source = "../../modules/compute"
+
+  project_name           = var.project_name
+  environment            = var.environment
+  private_subnet_ids     = module.networking.private_subnet_ids
+  ec2_security_group_id  = module.security.ec2_security_group_id
+  target_group_arn       = module.alb.target_group_arn
+  repository_url         = module.ecr.repository_url
+  backend_port           = var.backend_port
+  instance_type          = var.instance_type
+  min_size               = var.min_size
+  desired_capacity       = var.desired_capacity
+  max_size               = var.max_size
+  target_cpu_utilization = var.target_cpu_utilization
+  image_tag              = var.image_tag
+}

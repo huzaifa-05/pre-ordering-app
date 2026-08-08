@@ -54,3 +54,44 @@ variable "backend_port" {
   type        = number
   default     = 5000
 }
+# EC2 instance type
+variable "instance_type" {
+  description = "EC2 instance type used by the backend Auto Scaling Group."
+  type        = string
+  default     = "t2.micro"
+}
+
+# Minimum ASG capacity
+variable "min_size" {
+  description = "Minimum number of backend EC2 instances."
+  type        = number
+  default     = 1
+}
+
+# Desired ASG capacity
+variable "desired_capacity" {
+  description = "Desired number of backend EC2 instances."
+  type        = number
+  default     = 1
+}
+
+# Maximum ASG capacity
+variable "max_size" {
+  description = "Maximum number of backend EC2 instances."
+  type        = number
+  default     = 3
+}
+
+# Target CPU utilization
+variable "target_cpu_utilization" {
+  description = "Average CPU utilization target for Auto Scaling."
+  type        = number
+  default     = 70
+}
+
+# Backend Docker image tag
+variable "image_tag" {
+  description = "Docker image tag deployed from ECR."
+  type        = string
+  default     = "v1"
+}

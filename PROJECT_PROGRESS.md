@@ -141,13 +141,13 @@ The dev Terraform root currently instantiates these modules:
 - `module.pipeline`
 - `module.networking`
 - `module.security`
+- `module.ecr`
+- `module.alb`
 
 The following module directories exist but are not yet wired into `terraform/environments/dev/main.tf`:
 
-- `ecr`
 - `database`
 - `compute`
-- `alb`
 - `auth`
 - `frontend_hosting`
 
@@ -404,9 +404,56 @@ Completed
 
 ---
 
-# Scaffolded Terraform Modules
+## Application Load Balancer
 
-The following module directories exist in the repository, but their Terraform files are currently empty and they are not yet active in the dev root:
+### Purpose
+
+The ALB module exposes the backend API through a public Application Load Balancer and forwards HTTP traffic to the backend target group.
+
+### AWS Resources Created
+
+- Application Load Balancer
+- Backend Target Group
+- HTTP Listener
+- Backend health check configuration
+
+### Terraform Resources Created
+
+- `aws_lb.main`
+- `aws_lb_target_group.backend`
+- `aws_lb_listener.http`
+
+### Inputs
+
+- `project_name`
+- `environment`
+- `vpc_id`
+- `public_subnet_ids`
+- `alb_security_group_id`
+- `backend_port`
+- `health_check_path`
+
+### Outputs
+
+- `alb_arn`
+- `alb_dns_name`
+- `target_group_arn`
+
+### Dependencies
+
+- Networking module VPC ID.
+- Networking module public subnet IDs.
+- Security module ALB security group ID.
+
+### Current Status
+
+Completed
+
+---
+
+# Pending Terraform Modules
+
+The following modules are not yet marked as completed in this handoff document:
 
 ## ECR
 
@@ -421,7 +468,7 @@ Create the container registry for the backend Docker image.
 
 ### Current Status
 
-Scaffolded only. Not implemented and not deployed.
+Implemented in code and wired into the dev root. Completion status still needs to be confirmed and documented.
 
 ---
 
@@ -454,25 +501,6 @@ Create the backend runtime environment for the Node.js API.
 - EC2 instance or compute target
 - IAM instance profile and permissions
 - Deployment integration for backend container runtime
-
-### Current Status
-
-Scaffolded only. Not implemented and not deployed.
-
----
-
-## Application Load Balancer
-
-### Planned Purpose
-
-Expose the backend API through an AWS Application Load Balancer.
-
-### Planned AWS Resources
-
-- Application Load Balancer
-- Target Group
-- Listener
-- Health check configuration
 
 ### Current Status
 
@@ -561,7 +589,7 @@ Application code exists. Terraform frontend hosting infrastructure is not yet im
 
 ### Current Status
 
-Application code and deployment scripts exist. Terraform ECR, compute, database, and ALB infrastructure are not yet implemented in the active dev root.
+Application code and deployment scripts exist. Terraform compute and database infrastructure are not yet implemented in the active dev root.
 
 ---
 
@@ -588,7 +616,7 @@ Terraform Apply
 
 v
 
-Storage + Networking + Security
+Storage + Networking + Security + ALB
 ```
 
 Planned application architecture:
@@ -633,6 +661,10 @@ Networking
 v
 
 Security
+
+v
+
+ALB
 ```
 
 Planned full dependency chain:
@@ -685,7 +717,7 @@ Frontend Hosting
 - [ ] ECR
 - [ ] Database
 - [ ] Compute
-- [ ] Application Load Balancer
+- [x] Application Load Balancer
 - [ ] Cognito Authentication
 - [ ] Frontend Hosting
 - [ ] Backend pipeline integration

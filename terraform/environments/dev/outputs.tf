@@ -52,3 +52,8 @@ output "alb_dns_name" {
   description = "DNS name of the Application Load Balancer."
   value       = module.alb.alb_dns_name
 }
+# Backend Auto Scaling Group name
+output "backend_autoscaling_group_name" {
+  description = "Name of the backend Auto Scaling Group."
+  value       = module.compute.autoscaling_group_name
+}

@@ -26,3 +26,12 @@ availability_zones = [
 
 # Backend application port
 backend_port = 5000
+
+# Compute configuration
+instance_type          = "t2.micro"
+min_size               = 1
+desired_capacity       = 1
+max_size               = 3
+target_cpu_utilization = 70
+image_tag              = "v1"
+
