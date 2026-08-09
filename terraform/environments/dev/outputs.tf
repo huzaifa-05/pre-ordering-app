@@ -99,3 +99,39 @@ output "frontend_cloudfront_domain_name" {
   description = "Domain name of the frontend CloudFront distribution."
   value       = module.frontend_hosting.cloudfront_domain_name
 }
+
+# Aurora writer endpoint
+output "aurora_cluster_endpoint" {
+  description = "Writer endpoint of the Aurora MySQL cluster."
+  value       = module.database.cluster_endpoint
+}
+
+# Aurora reader endpoint
+output "aurora_reader_endpoint" {
+  description = "Reader endpoint of the Aurora MySQL cluster."
+  value       = module.database.reader_endpoint
+}
+
+# Aurora cluster ID
+output "aurora_cluster_id" {
+  description = "ID of the Aurora MySQL cluster."
+  value       = module.database.cluster_id
+}
+
+# Aurora cluster ARN
+output "aurora_cluster_arn" {
+  description = "ARN of the Aurora MySQL cluster."
+  value       = module.database.cluster_arn
+}
+
+# Aurora database name
+output "aurora_database_name" {
+  description = "Name of the Aurora application database."
+  value       = module.database.database_name
+}
+
+# Aurora managed secret ARN
+output "aurora_master_user_secret_arn" {
+  description = "ARN of the Aurora managed master user secret."
+  value       = module.database.master_user_secret_arn
+}

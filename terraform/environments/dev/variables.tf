@@ -95,3 +95,51 @@ variable "image_tag" {
   type        = string
   default     = "v1"
 }
+
+# Application database name
+variable "database_name" {
+  description = "Name of the initial Aurora database."
+  type        = string
+  default     = "preorderingdb"
+}
+
+# Database master username
+variable "db_master_username" {
+  description = "Master username for the Aurora cluster."
+  type        = string
+  default     = "dbadmin"
+}
+
+# Aurora instance class
+variable "db_instance_class" {
+  description = "Aurora MySQL DB instance class for dev."
+  type        = string
+}
+
+# Aurora MySQL engine version
+variable "db_engine_version" {
+  description = "Aurora MySQL engine version. Null uses the AWS default."
+  type        = string
+  default     = null
+}
+
+# Database backup retention
+variable "db_backup_retention_period" {
+  description = "Number of days to retain Aurora backups."
+  type        = number
+  default     = 3
+}
+
+# Database deletion protection
+variable "db_deletion_protection" {
+  description = "Whether Aurora deletion protection is enabled."
+  type        = bool
+  default     = false
+}
+
+# Final snapshot behavior
+variable "db_skip_final_snapshot" {
+  description = "Whether to skip the final Aurora snapshot on deletion."
+  type        = bool
+  default     = true
+}

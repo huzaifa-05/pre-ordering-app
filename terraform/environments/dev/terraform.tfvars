@@ -35,3 +35,11 @@ max_size               = 3
 target_cpu_utilization = 70
 image_tag              = "v1"
 
+# Database configuration
+database_name              = "preorderingdb"
+db_master_username         = "dbadmin"
+db_instance_class          = "db.t4g.medium"
+db_engine_version          = null
+db_backup_retention_period = 3
+db_deletion_protection     = false
+db_skip_final_snapshot     = true

@@ -101,3 +101,22 @@ module "frontend_hosting" {
   project_name = var.project_name
   environment  = var.environment
 }
+
+# Aurora database module
+module "database" {
+  source = "../../modules/database"
+
+  project_name          = var.project_name
+  environment           = var.environment
+  private_subnet_ids    = module.networking.private_subnet_ids
+  rds_security_group_id = module.security.rds_security_group_id
+
+  database_name      = var.database_name
+  db_master_username = var.db_master_username
+  db_instance_class  = var.db_instance_class
+  engine_version     = var.db_engine_version
+
+  backup_retention_period = var.db_backup_retention_period
+  deletion_protection     = var.db_deletion_protection
+  skip_final_snapshot     = var.db_skip_final_snapshot
+}
