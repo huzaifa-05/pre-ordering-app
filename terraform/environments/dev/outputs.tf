@@ -57,3 +57,21 @@ output "backend_autoscaling_group_name" {
   description = "Name of the backend Auto Scaling Group."
   value       = module.compute.autoscaling_group_name
 }
+
+# Cognito User Pool ID
+output "cognito_user_pool_id" {
+  description = "ID of the Cognito User Pool."
+  value       = module.auth.user_pool_id
+}
+
+# Cognito User Pool App Client ID
+output "cognito_user_pool_client_id" {
+  description = "ID of the Cognito User Pool App Client."
+  value       = module.auth.user_pool_client_id
+}
+
+# Cognito User Pool ARN
+output "cognito_user_pool_arn" {
+  description = "ARN of the Cognito User Pool."
+  value       = module.auth.user_pool_arn
+}

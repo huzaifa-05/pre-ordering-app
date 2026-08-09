@@ -85,3 +85,11 @@ module "compute" {
   target_cpu_utilization = var.target_cpu_utilization
   image_tag              = var.image_tag
 }
+
+# Cognito authentication module
+module "auth" {
+  source = "../../modules/auth"
+
+  project_name = var.project_name
+  environment  = var.environment
+}
