@@ -93,3 +93,11 @@ module "auth" {
   project_name = var.project_name
   environment  = var.environment
 }
+
+# Frontend hosting module
+module "frontend_hosting" {
+  source = "../../modules/frontend_hosting"
+
+  project_name = var.project_name
+  environment  = var.environment
+}

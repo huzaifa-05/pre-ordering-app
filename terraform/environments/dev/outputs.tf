@@ -75,3 +75,27 @@ output "cognito_user_pool_arn" {
   description = "ARN of the Cognito User Pool."
   value       = module.auth.user_pool_arn
 }
+
+# Frontend S3 bucket name
+output "frontend_bucket_name" {
+  description = "Name of the frontend S3 bucket."
+  value       = module.frontend_hosting.bucket_name
+}
+
+# Frontend S3 bucket ARN
+output "frontend_bucket_arn" {
+  description = "ARN of the frontend S3 bucket."
+  value       = module.frontend_hosting.bucket_arn
+}
+
+# Frontend CloudFront distribution ID
+output "frontend_cloudfront_distribution_id" {
+  description = "ID of the frontend CloudFront distribution."
+  value       = module.frontend_hosting.cloudfront_distribution_id
+}
+
+# Frontend CloudFront domain name
+output "frontend_cloudfront_domain_name" {
+  description = "Domain name of the frontend CloudFront distribution."
+  value       = module.frontend_hosting.cloudfront_domain_name
+}
