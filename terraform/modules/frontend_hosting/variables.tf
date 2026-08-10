@@ -9,3 +9,9 @@ variable "environment" {
   description = "Deployment environment such as dev or prod."
   type        = string
 }
+
+# ALB DNS name for API routing
+variable "alb_dns_name" {
+  description = "DNS name of the existing Application Load Balancer."
+  type        = string
+}

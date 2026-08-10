@@ -6,9 +6,20 @@ data "aws_cloudfront_cache_policy" "caching_optimized" {
   name = "Managed-CachingOptimized"
 }
 
+# Managed policy disables caching for API requests
+data "aws_cloudfront_cache_policy" "caching_disabled" {
+  name = "Managed-CachingDisabled"
+}
+
+# Managed policy forwards viewer request data needed by APIs
+data "aws_cloudfront_origin_request_policy" "all_viewer_except_host" {
+  name = "Managed-AllViewerExceptHostHeader"
+}
+
 locals {
-  bucket_name = "${var.project_name}-${var.environment}-frontend-${data.aws_caller_identity.current.account_id}"
-  origin_id   = "${var.project_name}-${var.environment}-frontend-origin"
+  bucket_name   = "${var.project_name}-${var.environment}-frontend-${data.aws_caller_identity.current.account_id}"
+  s3_origin_id  = "${var.project_name}-${var.environment}-frontend-origin"
+  alb_origin_id = "${var.project_name}-${var.environment}-alb-origin"
 }
 
 # Private S3 bucket for frontend assets
@@ -79,12 +90,24 @@ resource "aws_cloudfront_distribution" "frontend" {
 
   origin {
     domain_name              = aws_s3_bucket.frontend.bucket_regional_domain_name
-    origin_id                = local.origin_id
+    origin_id                = local.s3_origin_id
     origin_access_control_id = aws_cloudfront_origin_access_control.frontend.id
   }
 
+  origin {
+    domain_name = var.alb_dns_name
+    origin_id   = local.alb_origin_id
+
+    custom_origin_config {
+      http_port              = 80
+      https_port             = 443
+      origin_protocol_policy = "http-only"
+      origin_ssl_protocols   = ["TLSv1.2"]
+    }
+  }
+
   default_cache_behavior {
-    target_origin_id       = local.origin_id
+    target_origin_id       = local.s3_origin_id
     viewer_protocol_policy = "redirect-to-https"
     cache_policy_id        = data.aws_cloudfront_cache_policy.caching_optimized.id
     compress               = true
@@ -92,6 +115,30 @@ resource "aws_cloudfront_distribution" "frontend" {
     allowed_methods = [
       "GET",
       "HEAD"
+    ]
+
+    cached_methods = [
+      "GET",
+      "HEAD"
+    ]
+  }
+
+  ordered_cache_behavior {
+    path_pattern             = "/api/*"
+    target_origin_id         = local.alb_origin_id
+    viewer_protocol_policy   = "redirect-to-https"
+    cache_policy_id          = data.aws_cloudfront_cache_policy.caching_disabled.id
+    origin_request_policy_id = data.aws_cloudfront_origin_request_policy.all_viewer_except_host.id
+    compress                 = true
+
+    allowed_methods = [
+      "GET",
+      "HEAD",
+      "OPTIONS",
+      "PUT",
+      "POST",
+      "PATCH",
+      "DELETE"
     ]
 
     cached_methods = [
