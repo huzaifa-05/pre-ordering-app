@@ -3,11 +3,53 @@ import fs from "fs";
 import path from "path";
 import dotenv from "dotenv";
 import { fileURLToPath } from "url";
+import { SecretsManagerClient, GetSecretValueCommand } from "@aws-sdk/client-secrets-manager";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 dotenv.config({ path: path.join(__dirname, "..", ".env") });
+
+function requireEnv(name) {
+  const value = process.env[name];
+
+  if (!value) {
+    throw new Error(`Missing required environment variable: ${name}`);
+  }
+
+  return value;
+}
+
+async function loadDatabaseCredentials() {
+  if (!process.env.DB_SECRET_ARN) {
+    return {
+      username: requireEnv("DB_USER"),
+      password: requireEnv("DB_PASSWORD"),
+    };
+  }
+
+  const client = new SecretsManagerClient({ region: requireEnv("AWS_REGION") });
+  const response = await client.send(
+    new GetSecretValueCommand({
+      SecretId: process.env.DB_SECRET_ARN,
+    })
+  );
+
+  if (!response.SecretString) {
+    throw new Error("Database secret does not contain a SecretString.");
+  }
+
+  const secret = JSON.parse(response.SecretString);
+
+  if (!secret.username || !secret.password) {
+    throw new Error("Database secret must contain username and password.");
+  }
+
+  return {
+    username: secret.username,
+    password: secret.password,
+  };
+}
 
 async function columnExists(db, tableName, columnName) {
   const [rows] = await db.execute(
@@ -85,22 +127,23 @@ async function initDatabase() {
   console.log(" Initializing Pre-Ordering Database");
   console.log("======================================");
 
-  const config = {
-    host: process.env.DB_HOST || "localhost",
-    port: Number(process.env.DB_PORT || 3306),
-    user: process.env.DB_USER || "root",
-    password: process.env.DB_PASSWORD || "",
-  };
-
-  const dbName = process.env.DB_NAME || "pre_ordering_db";
-
   let server;
   let db;
 
   try {
+    const credentials = await loadDatabaseCredentials();
+    const dbName = requireEnv("DB_NAME");
+
+    const config = {
+      host: requireEnv("DB_HOST"),
+      port: Number(process.env.DB_PORT || 3306),
+      user: credentials.username,
+      password: credentials.password,
+    };
+
     // Connect to MySQL Server
     server = await mysql.createConnection(config);
-    console.log("✅ Connected to MySQL Server");
+    console.log("Connected to MySQL server.");
 
     // Create Database
     await server.query(`
@@ -109,7 +152,7 @@ async function initDatabase() {
       COLLATE utf8mb4_unicode_ci;
     `);
 
-    console.log(`✅ Database '${dbName}' is ready`);
+    console.log(`Database '${dbName}' is ready.`);
 
     await server.end();
 
@@ -119,7 +162,7 @@ async function initDatabase() {
       database: dbName,
     });
 
-    console.log(`✅ Connected to '${dbName}'`);
+    console.log(`Connected to '${dbName}'.`);
 
     // Read Schema
     const schemaPath = path.join(__dirname, "schema.sql");
@@ -148,7 +191,7 @@ async function initDatabase() {
       await db.query(statement);
     }
 
-    console.log("\n✅ Tables created successfully.");
+    console.log("\nTables created successfully.");
 
     // ------------------------------------------------------------
     // Load seed data from seed.sql (roles, categories, statuses)
@@ -159,15 +202,15 @@ async function initDatabase() {
     seedSql = seedSql.replace(/^\s*[\r\n]/gm, "");
     const seedStatements = seedSql
       .split(";")
-      .map(s => s.trim())
-      .filter(s => s.length);
+      .map((s) => s.trim())
+      .filter((s) => s.length);
     console.log(`\nFound ${seedStatements.length} seed statements`);
     for (const stmt of seedStatements) {
       console.log("--- seed ---");
       console.log(stmt.substring(0, 80) + "...");
       await db.query(stmt);
     }
-    console.log("\n✅ Seed data inserted successfully.");
+    console.log("\nSeed data inserted successfully.");
 
     await ensureSchemaCompatibility(db);
 
@@ -213,12 +256,13 @@ async function initDatabase() {
       );
     }
 
-    console.log("✅ Menu imported successfully.");
+    console.log("Menu imported successfully.");
 
-    console.log("\n🎉 Database initialization completed.");
+    console.log("\nDatabase initialization completed.");
   } catch (err) {
-    console.error("\n❌ Initialization Failed");
-    console.error(err);
+    console.error("\nInitialization failed.");
+    console.error(err.message);
+    process.exitCode = 1;
   } finally {
     if (db) await db.end().catch(() => { });
     if (server) await server.end().catch(() => { });
