@@ -5,7 +5,7 @@ phases:
     runtime-versions:
       nodejs: 20
     commands:
-      - echo "========== BACKEND INSTALL =========="
+      - 'echo "========== BACKEND INSTALL =========="'
       - aws --version
       - docker --version
       - node --version || true
@@ -13,8 +13,8 @@ phases:
 
   pre_build:
     commands:
-      - echo "========== BACKEND PRE-BUILD =========="
-      - echo "Source version: $CODEBUILD_RESOLVED_SOURCE_VERSION"
+      - 'echo "========== BACKEND PRE-BUILD =========="'
+      - 'echo "Source version: $CODEBUILD_RESOLVED_SOURCE_VERSION"'
       - export IMAGE_TAG="$CODEBUILD_RESOLVED_SOURCE_VERSION"
       - export ECR_REGISTRY="$(echo "$ECR_REPOSITORY_URL" | cut -d/ -f1)"
       - cd server
@@ -25,17 +25,17 @@ phases:
         else
           echo "No backend test script found; skipping tests."
         fi
-      - echo "Logging in to Amazon ECR..."
+      - 'echo "Logging in to Amazon ECR..."'
       - aws ecr get-login-password --region "$AWS_DEFAULT_REGION" | docker login --username AWS --password-stdin "$ECR_REGISTRY"
 
   build:
     commands:
-      - echo "========== BACKEND BUILD =========="
+      - 'echo "========== BACKEND BUILD =========="'
       - docker build -t "$ECR_REPOSITORY_URL:$IMAGE_TAG" .
 
   post_build:
     commands:
-      - echo "========== BACKEND DEPLOY =========="
+      - 'echo "========== BACKEND DEPLOY =========="'
       - docker push "$ECR_REPOSITORY_URL:$IMAGE_TAG"
       - |
         aws ssm put-parameter \
@@ -47,4 +47,4 @@ phases:
         aws autoscaling start-instance-refresh \
           --auto-scaling-group-name "$AUTOSCALING_GROUP_NAME" \
           --preferences '{"MinHealthyPercentage":50,"InstanceWarmup":180}'
-      - echo "Backend deployment started with image tag $IMAGE_TAG."
+      - 'echo "Backend deployment started with image tag $IMAGE_TAG."'
