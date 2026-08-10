@@ -143,13 +143,13 @@ The dev Terraform root currently instantiates these modules:
 - `module.security`
 - `module.ecr`
 - `module.alb`
+- `module.compute`
+- `module.auth`
+- `module.frontend_hosting`
 
 The following module directories exist but are not yet wired into `terraform/environments/dev/main.tf`:
 
 - `database`
-- `compute`
-- `auth`
-- `frontend_hosting`
 
 ---
 
@@ -404,6 +404,46 @@ Completed
 
 ---
 
+## ECR
+
+### Purpose
+
+The ECR module creates the private container registry used to store backend Docker images.
+
+### AWS Resources Created
+
+- Amazon ECR repository
+- Image scanning on push
+- AES256 image encryption
+- Lifecycle policy for old untagged images
+
+### Terraform Resources Created
+
+- `aws_ecr_repository.backend`
+- `aws_ecr_lifecycle_policy.backend`
+
+### Inputs
+
+- `project_name`
+- `environment`
+- `untagged_image_count`
+
+### Outputs
+
+- `repository_name`
+- `repository_arn`
+- `repository_url`
+
+### Dependencies
+
+- Project naming and environment configuration.
+
+### Current Status
+
+Completed
+
+---
+
 ## Application Load Balancer
 
 ### Purpose
@@ -451,26 +491,164 @@ Completed
 
 ---
 
-# Pending Terraform Modules
+## Compute
 
-The following modules are not yet marked as completed in this handoff document:
+### Purpose
 
-## ECR
+The Compute module provisions the backend runtime layer using EC2, Auto Scaling, and ECR-based container bootstrap.
 
-### Planned Purpose
+### AWS Resources Created
 
-Create the container registry for the backend Docker image.
+- EC2 IAM Role and Instance Profile
+- Launch Template
+- Auto Scaling Group
+- CPU target tracking scaling policy
+- SSM and ECR read-only IAM policy attachments
 
-### Planned AWS Resources
+### Terraform Resources Created
 
-- Amazon ECR repository
-- Image scanning and lifecycle policy as required
+- `data.aws_iam_policy_document.ec2_assume_role`
+- `data.aws_region.current`
+- `data.aws_ami.amazon_linux`
+- `aws_iam_role.ec2`
+- `aws_iam_role_policy_attachment.ssm`
+- `aws_iam_role_policy_attachment.ecr_read_only`
+- `aws_iam_instance_profile.ec2`
+- `aws_launch_template.backend`
+- `aws_autoscaling_group.backend`
+- `aws_autoscaling_policy.cpu_target_tracking`
+
+### Inputs
+
+- `project_name`
+- `environment`
+- `private_subnet_ids`
+- `ec2_security_group_id`
+- `target_group_arn`
+- `repository_url`
+- `backend_port`
+- `instance_type`
+- `min_size`
+- `desired_capacity`
+- `max_size`
+- `target_cpu_utilization`
+- `image_tag`
+
+### Outputs
+
+- `autoscaling_group_name`
+- `launch_template_id`
+- `ec2_role_arn`
+
+### Dependencies
+
+- Networking private subnet IDs.
+- Security module EC2 security group ID.
+- ALB target group ARN.
+- ECR repository URL.
 
 ### Current Status
 
-Implemented in code and wired into the dev root. Completion status still needs to be confirmed and documented.
+Completed
 
 ---
+
+## Cognito Authentication
+
+### Purpose
+
+The Authentication module provisions Cognito resources compatible with the existing direct Cognito API frontend flow and backend JWT validation.
+
+### AWS Resources Created
+
+- Cognito User Pool
+- Cognito User Pool App Client
+- Email username and auto verification
+- Verified-email account recovery
+- Password policy
+
+### Terraform Resources Created
+
+- `aws_cognito_user_pool.main`
+- `aws_cognito_user_pool_client.frontend`
+
+### Inputs
+
+- `project_name`
+- `environment`
+
+### Outputs
+
+- `user_pool_id`
+- `user_pool_arn`
+- `user_pool_client_id`
+
+### Dependencies
+
+- Frontend Cognito environment variables.
+- Backend Cognito environment variables.
+
+### Current Status
+
+Completed
+
+---
+
+## Frontend Hosting
+
+### Purpose
+
+The Frontend Hosting module provisions private S3 and CloudFront infrastructure for the React single-page application.
+
+### AWS Resources Created
+
+- Private S3 frontend bucket
+- S3 versioning, encryption, public access block, and ownership controls
+- CloudFront Origin Access Control
+- CloudFront distribution
+- SPA fallback responses for 403 and 404
+- Bucket policy allowing CloudFront-only access
+
+### Terraform Resources Created
+
+- `data.aws_caller_identity.current`
+- `data.aws_cloudfront_cache_policy.caching_optimized`
+- `aws_s3_bucket.frontend`
+- `aws_s3_bucket_versioning.frontend`
+- `aws_s3_bucket_server_side_encryption_configuration.frontend`
+- `aws_s3_bucket_public_access_block.frontend`
+- `aws_s3_bucket_ownership_controls.frontend`
+- `aws_cloudfront_origin_access_control.frontend`
+- `aws_cloudfront_distribution.frontend`
+- `data.aws_iam_policy_document.frontend_bucket`
+- `aws_s3_bucket_policy.frontend`
+
+### Inputs
+
+- `project_name`
+- `environment`
+
+### Outputs
+
+- `bucket_name`
+- `bucket_arn`
+- `cloudfront_distribution_id`
+- `cloudfront_domain_name`
+
+### Dependencies
+
+- AWS account identity for globally unique S3 bucket naming.
+- AWS-managed CloudFront cache policy.
+
+### Current Status
+
+Completed
+
+---
+
+# Pending Terraform Modules
+
+The following modules are not yet marked as completed in this handoff document:
 
 ## Database
 
@@ -483,60 +661,6 @@ Create the managed MySQL database layer for menu and order data.
 - RDS MySQL database
 - DB subnet group
 - Database configuration and outputs required by the backend
-
-### Current Status
-
-Scaffolded only. Not implemented and not deployed.
-
----
-
-## Compute
-
-### Planned Purpose
-
-Create the backend runtime environment for the Node.js API.
-
-### Planned AWS Resources
-
-- EC2 instance or compute target
-- IAM instance profile and permissions
-- Deployment integration for backend container runtime
-
-### Current Status
-
-Scaffolded only. Not implemented and not deployed.
-
----
-
-## Cognito Authentication
-
-### Planned Purpose
-
-Provision Cognito authentication resources used by the frontend and backend authorization flow.
-
-### Planned AWS Resources
-
-- Cognito User Pool
-- Cognito App Client
-- Required authentication outputs
-
-### Current Status
-
-Scaffolded only. Not implemented and not deployed.
-
----
-
-## Frontend Hosting
-
-### Planned Purpose
-
-Host the React frontend as a production static site.
-
-### Planned AWS Resources
-
-- S3 static hosting bucket
-- CloudFront distribution
-- Required deployment permissions and outputs
 
 ### Current Status
 
@@ -563,7 +687,7 @@ Scaffolded only. Not implemented and not deployed.
 
 ### Current Status
 
-Application code exists. Terraform frontend hosting infrastructure is not yet implemented in the active dev root.
+Application code and frontend hosting infrastructure exist. The build pipeline will publish the React production build to S3 and invalidate CloudFront.
 
 ---
 
@@ -589,7 +713,7 @@ Application code exists. Terraform frontend hosting infrastructure is not yet im
 
 ### Current Status
 
-Application code and deployment scripts exist. Terraform compute and database infrastructure are not yet implemented in the active dev root.
+Application code, deployment scripts, ECR, ALB, and compute infrastructure exist. Terraform database infrastructure is not yet implemented in the active dev root.
 
 ---
 
@@ -616,10 +740,10 @@ Terraform Apply
 
 v
 
-Storage + Networking + Security + ALB
+Storage + Networking + Security + ECR + ALB + Compute + Authentication + Frontend Hosting
 ```
 
-Planned application architecture:
+Current application architecture:
 
 ```text
 Internet
@@ -638,7 +762,7 @@ Backend Compute
 
 v
 
-RDS MySQL
+RDS MySQL (pending)
 ```
 
 ---
@@ -664,7 +788,23 @@ Security
 
 v
 
+ECR
+
+v
+
 ALB
+
+v
+
+Compute
+
+v
+
+Authentication
+
+v
+
+Frontend Hosting
 ```
 
 Planned full dependency chain:
@@ -714,12 +854,12 @@ Frontend Hosting
 # Remaining Modules and Milestones
 
 - [x] Security
-- [ ] ECR
+- [x] ECR
 - [ ] Database
-- [ ] Compute
+- [x] Compute
 - [x] Application Load Balancer
-- [ ] Cognito Authentication
-- [ ] Frontend Hosting
+- [x] Cognito Authentication
+- [x] Frontend Hosting
 - [ ] Backend pipeline integration
 - [ ] Frontend pipeline integration
 - [ ] Final Integration
@@ -786,6 +926,24 @@ v
 
 Infrastructure Updated
 ```
+
+## Local Terraform Validation Workflow
+
+Local Terraform is for formatting and validation only. Infrastructure planning and deployment must run through CodePipeline because the dev environment uses a shared S3 remote backend.
+
+Recommended local workflow:
+
+```text
+cd terraform/environments/dev
+
+terraform init -backend=false
+
+terraform fmt
+
+terraform validate
+```
+
+Do not run local Terraform planning for this project. If a local `.terraform` directory was previously initialized against the S3 backend, remove that generated directory or use a fresh Terraform data directory before running `terraform init -backend=false`.
 
 ## Backend Application Workflow
 
@@ -872,11 +1030,11 @@ Each completed module should be reviewed, validated, deployed, and documented be
 
 # Next Task
 
-The next Terraform module to implement is ECR.
+The next Terraform module to implement is Database.
 
-It should create the container registry required for the backend Docker image and expose the outputs needed by the backend build and deployment workflow.
+It should create the managed MySQL database layer required by the backend API.
 
-After the ECR module is implemented and deployed through the Terraform pipeline, update this `PROJECT_PROGRESS.md` file with:
+After the Database module is implemented and deployed through the Terraform pipeline, update this `PROJECT_PROGRESS.md` file with:
 
 - Purpose
 - AWS resources created

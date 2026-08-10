@@ -55,6 +55,53 @@ resource "aws_iam_role_policy_attachment" "ecr_read_only" {
   policy_arn = "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly"
 }
 
+# Desired backend image tag
+resource "aws_ssm_parameter" "backend_image_tag" {
+  name  = "/${var.project_name}/${var.environment}/backend/image-tag"
+  type  = "String"
+  value = var.image_tag
+
+  tags = {
+    Name        = "${var.project_name}-${var.environment}-backend-image-tag"
+    Project     = var.project_name
+    Environment = var.environment
+  }
+
+  lifecycle {
+    ignore_changes = [value]
+  }
+}
+
+data "aws_iam_policy_document" "backend_image_tag_read" {
+  statement {
+    effect    = "Allow"
+    actions   = ["ssm:GetParameter"]
+    resources = [aws_ssm_parameter.backend_image_tag.arn]
+  }
+}
+
+# Allow EC2 to read the desired image tag
+resource "aws_iam_role_policy" "backend_image_tag_read" {
+  name   = "${var.project_name}-${var.environment}-image-tag-read"
+  role   = aws_iam_role.ec2.id
+  policy = data.aws_iam_policy_document.backend_image_tag_read.json
+}
+
+data "aws_iam_policy_document" "database_secret_read" {
+  statement {
+    effect    = "Allow"
+    actions   = ["secretsmanager:GetSecretValue"]
+    resources = [var.database_secret_arn]
+  }
+}
+
+# Allow EC2 to read Aurora credentials
+resource "aws_iam_role_policy" "database_secret_read" {
+  name   = "${var.project_name}-${var.environment}-db-secret-read"
+  role   = aws_iam_role.ec2.id
+  policy = data.aws_iam_policy_document.database_secret_read.json
+}
+
 # Instance profile attaches the IAM role to EC2
 resource "aws_iam_instance_profile" "ec2" {
   name = "${var.project_name}-${var.environment}-ec2-profile"
@@ -86,11 +133,16 @@ resource "aws_launch_template" "backend" {
   user_data = base64encode(templatefile(
     "${path.module}/user_data.sh.tpl",
     {
-      aws_region     = data.aws_region.current.name
-      ecr_registry   = split("/", var.repository_url)[0]
-      repository_url = var.repository_url
-      image_tag      = var.image_tag
-      backend_port   = var.backend_port
+      aws_region               = data.aws_region.current.name
+      ecr_registry             = split("/", var.repository_url)[0]
+      repository_url           = var.repository_url
+      image_tag_parameter_name = aws_ssm_parameter.backend_image_tag.name
+      backend_port             = var.backend_port
+      aurora_cluster_endpoint  = var.aurora_cluster_endpoint
+      database_name            = var.database_name
+      database_secret_arn      = var.database_secret_arn
+      cognito_user_pool_id     = var.cognito_user_pool_id
+      cognito_client_id        = var.cognito_user_pool_client_id
     }
   ))
 

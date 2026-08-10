@@ -18,6 +18,16 @@ output "terraform_apply_project_name" {
   value       = module.pipeline.terraform_apply_project_name
 }
 
+output "backend_deploy_project_name" {
+  description = "Backend deployment CodeBuild project name."
+  value       = module.pipeline.backend_deploy_project_name
+}
+
+output "frontend_deploy_project_name" {
+  description = "Frontend deployment CodeBuild project name."
+  value       = module.pipeline.frontend_deploy_project_name
+}
+
 output "terraform_codebuild_role_arn" {
   description = "Terraform CodeBuild IAM role ARN."
   value       = module.pipeline.terraform_codebuild_role_arn

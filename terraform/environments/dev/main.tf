@@ -19,6 +19,18 @@ module "pipeline" {
   artifact_bucket_name = module.storage.pipeline_artifact_bucket_name
   artifact_bucket_arn  = module.storage.pipeline_artifact_bucket_arn
   state_bucket_arn     = module.storage.terraform_state_bucket_arn
+
+  ecr_repository_url               = module.ecr.repository_url
+  ecr_repository_arn               = module.ecr.repository_arn
+  autoscaling_group_name           = module.compute.autoscaling_group_name
+  backend_image_tag_parameter_name = module.compute.backend_image_tag_parameter_name
+  backend_image_tag_parameter_arn  = module.compute.backend_image_tag_parameter_arn
+  frontend_bucket_name             = module.frontend_hosting.bucket_name
+  frontend_bucket_arn              = module.frontend_hosting.bucket_arn
+  cloudfront_distribution_id       = module.frontend_hosting.cloudfront_distribution_id
+  cognito_user_pool_id             = module.auth.user_pool_id
+  cognito_user_pool_client_id      = module.auth.user_pool_client_id
+  backend_api_url                  = "http://${module.alb.alb_dns_name}/api"
 }
 
 # Networking module
@@ -84,6 +96,12 @@ module "compute" {
   max_size               = var.max_size
   target_cpu_utilization = var.target_cpu_utilization
   image_tag              = var.image_tag
+
+  aurora_cluster_endpoint     = module.database.cluster_endpoint
+  database_name               = module.database.database_name
+  database_secret_arn         = module.database.master_user_secret_arn
+  cognito_user_pool_id        = module.auth.user_pool_id
+  cognito_user_pool_client_id = module.auth.user_pool_client_id
 }
 
 # Cognito authentication module

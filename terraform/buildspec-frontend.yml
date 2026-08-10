@@ -1,0 +1,33 @@
+version: 0.2
+
+phases:
+  install:
+    runtime-versions:
+      nodejs: 20
+    commands:
+      - echo "========== FRONTEND INSTALL =========="
+      - node --version
+      - npm --version
+
+  pre_build:
+    commands:
+      - echo "========== FRONTEND PRE-BUILD =========="
+      - cd frontend
+      - npm ci
+
+  build:
+    commands:
+      - echo "========== FRONTEND BUILD =========="
+      - export VITE_AUTH_PROVIDER="$VITE_AUTH_PROVIDER"
+      - export VITE_COGNITO_REGION="$VITE_COGNITO_REGION"
+      - export VITE_COGNITO_USER_POOL_ID="$VITE_COGNITO_USER_POOL_ID"
+      - export VITE_COGNITO_CLIENT_ID="$VITE_COGNITO_CLIENT_ID"
+      - export VITE_API_BASE_URL="$VITE_API_BASE_URL"
+      - npm run build
+
+  post_build:
+    commands:
+      - echo "========== FRONTEND DEPLOY =========="
+      - aws s3 sync dist/ "s3://$FRONTEND_BUCKET_NAME" --delete
+      - aws cloudfront create-invalidation --distribution-id "$CLOUDFRONT_DISTRIBUTION_ID" --paths "/*"
+      - echo "Frontend deployment completed."

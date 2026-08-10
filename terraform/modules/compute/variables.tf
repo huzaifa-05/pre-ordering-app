@@ -81,3 +81,33 @@ variable "image_tag" {
   type        = string
   default     = "v1"
 }
+
+# Aurora writer endpoint
+variable "aurora_cluster_endpoint" {
+  description = "Writer endpoint of the Aurora MySQL cluster."
+  type        = string
+}
+
+# Application database name
+variable "database_name" {
+  description = "Name of the application database."
+  type        = string
+}
+
+# Aurora managed secret ARN
+variable "database_secret_arn" {
+  description = "ARN of the Aurora managed master user secret."
+  type        = string
+}
+
+# Cognito User Pool ID
+variable "cognito_user_pool_id" {
+  description = "ID of the Cognito User Pool."
+  type        = string
+}
+
+# Cognito App Client ID
+variable "cognito_user_pool_client_id" {
+  description = "ID of the Cognito User Pool App Client."
+  type        = string
+}

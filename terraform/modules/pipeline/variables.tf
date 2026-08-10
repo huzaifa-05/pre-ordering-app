@@ -42,3 +42,58 @@ variable "state_bucket_arn" {
   description = "ARN of the existing Terraform state bucket."
   type        = string
 }
+
+variable "ecr_repository_url" {
+  description = "URL of the backend ECR repository."
+  type        = string
+}
+
+variable "ecr_repository_arn" {
+  description = "ARN of the backend ECR repository."
+  type        = string
+}
+
+variable "autoscaling_group_name" {
+  description = "Name of the backend Auto Scaling Group."
+  type        = string
+}
+
+variable "backend_image_tag_parameter_name" {
+  description = "Name of the SSM parameter storing the backend image tag."
+  type        = string
+}
+
+variable "backend_image_tag_parameter_arn" {
+  description = "ARN of the SSM parameter storing the backend image tag."
+  type        = string
+}
+
+variable "frontend_bucket_name" {
+  description = "Name of the frontend S3 bucket."
+  type        = string
+}
+
+variable "frontend_bucket_arn" {
+  description = "ARN of the frontend S3 bucket."
+  type        = string
+}
+
+variable "cloudfront_distribution_id" {
+  description = "ID of the frontend CloudFront distribution."
+  type        = string
+}
+
+variable "cognito_user_pool_id" {
+  description = "ID of the Cognito User Pool."
+  type        = string
+}
+
+variable "cognito_user_pool_client_id" {
+  description = "ID of the Cognito User Pool App Client."
+  type        = string
+}
+
+variable "backend_api_url" {
+  description = "Base API URL used by the frontend build."
+  type        = string
+}

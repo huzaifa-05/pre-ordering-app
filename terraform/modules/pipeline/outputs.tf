@@ -27,3 +27,13 @@ output "codepipeline_role_arn" {
   description = "CodePipeline IAM role ARN."
   value       = aws_iam_role.codepipeline.arn
 }
+
+output "backend_deploy_project_name" {
+  description = "Backend deployment CodeBuild project name."
+  value       = aws_codebuild_project.backend_deploy.name
+}
+
+output "frontend_deploy_project_name" {
+  description = "Frontend deployment CodeBuild project name."
+  value       = aws_codebuild_project.frontend_deploy.name
+}
