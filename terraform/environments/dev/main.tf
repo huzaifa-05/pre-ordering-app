@@ -30,7 +30,7 @@ module "pipeline" {
   cloudfront_distribution_id       = module.frontend_hosting.cloudfront_distribution_id
   cognito_user_pool_id             = module.auth.user_pool_id
   cognito_user_pool_client_id      = module.auth.user_pool_client_id
-  backend_api_url                  = "http://${module.alb.alb_dns_name}/api"
+  backend_api_url                  = "/api"
 }
 
 # Networking module
@@ -118,6 +118,7 @@ module "frontend_hosting" {
 
   project_name = var.project_name
   environment  = var.environment
+  alb_dns_name = module.alb.alb_dns_name
 }
 
 # Aurora database module
