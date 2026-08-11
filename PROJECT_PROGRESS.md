@@ -1059,6 +1059,26 @@ The first blue-green backend deployment failed because the green target group ex
 
 The weighted listener configuration fixes this by permanently referencing both blue and green target groups. A target group with weight `0` receives no production traffic, but remains associated with the load balancer so ALB can perform target health monitoring before the deployment switches traffic.
 
+## Weighted Listener Bootstrap
+
+Existing environments that were created before weighted forwarding need a one-time listener transition. If `lifecycle.ignore_changes = [default_action]` is present during that transition, Terraform will ignore the listener action diff and leave the existing AWS listener in its old blue-only configuration.
+
+Step A bootstrap configuration: keep the weighted `default_action` with blue weight `100` and green weight `0`, and temporarily omit `ignore_changes = [default_action]` from `aws_lb_listener.http`.
+
+Step B expected Terraform plan: verify the plan updates only the existing ALB listener default action from a single blue target group to weighted forwarding with both target groups. The plan must not recreate the ALB, recreate the listener, replace either target group, or destroy production resources.
+
+Step C after successful apply: restore this lifecycle block on `aws_lb_listener.http`:
+
+```hcl
+lifecycle {
+  ignore_changes = [default_action]
+}
+```
+
+Step D second pipeline execution: Terraform should stop managing deployment-time weight drift, and `BackendBuildDeploy` can safely read `ForwardConfig.TargetGroups`, deploy the inactive color, and switch weights.
+
+The current pipeline runs `BackendBuildDeploy` immediately after `TerraformApply`. During bootstrap, do not approve the apply unless the plan shows only the listener action transition described above. If the listener is still single-target when backend deployment starts, the buildspec fails before deployment because `ForwardConfig.TargetGroups` is missing or invalid.
+
 ## Rollback
 
 Rollback is performed by switching ALB listener weights back to the previous target group. This avoids rebuilding an older Docker image.
