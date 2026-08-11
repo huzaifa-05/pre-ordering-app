@@ -144,21 +144,29 @@ phases:
         echo "Inactive ASG: $INACTIVE_ASG_NAME"
       - |
         echo "Scaling inactive environment down before preparing new release..."
+        INACTIVE_ASG_CAPACITY_BEFORE="$(aws autoscaling describe-auto-scaling-groups \
+          --auto-scaling-group-names "$INACTIVE_ASG_NAME" \
+          --query "AutoScalingGroups[0].[MinSize,DesiredCapacity,MaxSize]" \
+          --output text)"
+        echo "Inactive ASG capacity before scale-down: min desired max = $INACTIVE_ASG_CAPACITY_BEFORE"
+
         aws autoscaling update-auto-scaling-group \
           --auto-scaling-group-name "$INACTIVE_ASG_NAME" \
+          --min-size 0 \
           --desired-capacity 0
 
         for attempt in $(seq 1 30); do
           ASG_STATE="$(aws autoscaling describe-auto-scaling-groups \
             --auto-scaling-group-names "$INACTIVE_ASG_NAME" \
-            --query "AutoScalingGroups[0].[DesiredCapacity,length(Instances[?LifecycleState=='InService' || LifecycleState=='Pending' || LifecycleState=='Pending:Wait' || LifecycleState=='Pending:Proceed' || LifecycleState=='Terminating' || LifecycleState=='Terminating:Wait' || LifecycleState=='Terminating:Proceed'])]" \
+            --query "AutoScalingGroups[0].[MinSize,DesiredCapacity,length(Instances[?LifecycleState=='InService' || LifecycleState=='Pending' || LifecycleState=='Pending:Wait' || LifecycleState=='Pending:Proceed' || LifecycleState=='Terminating' || LifecycleState=='Terminating:Wait' || LifecycleState=='Terminating:Proceed'])]" \
             --output text)"
-          DESIRED_CAPACITY="$(echo "$ASG_STATE" | awk '{print $1}')"
-          LIVE_INSTANCE_COUNT="$(echo "$ASG_STATE" | awk '{print $2}')"
+          MIN_SIZE="$(echo "$ASG_STATE" | awk '{print $1}')"
+          DESIRED_CAPACITY="$(echo "$ASG_STATE" | awk '{print $2}')"
+          LIVE_INSTANCE_COUNT="$(echo "$ASG_STATE" | awk '{print $3}')"
 
-          echo "Scale-down attempt $attempt: desired=$DESIRED_CAPACITY live_instances=$LIVE_INSTANCE_COUNT"
+          echo "Scale-down attempt $attempt: min=$MIN_SIZE desired=$DESIRED_CAPACITY live_instances=$LIVE_INSTANCE_COUNT"
 
-          if [ "$DESIRED_CAPACITY" -eq 0 ] && [ "$LIVE_INSTANCE_COUNT" -eq 0 ]; then
+          if [ "$MIN_SIZE" -eq 0 ] && [ "$DESIRED_CAPACITY" -eq 0 ] && [ "$LIVE_INSTANCE_COUNT" -eq 0 ]; then
             echo "Inactive environment is fully scaled down."
             break
           fi

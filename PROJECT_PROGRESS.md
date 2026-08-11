@@ -1079,6 +1079,10 @@ Step D second pipeline execution: Terraform should stop managing deployment-time
 
 The current pipeline runs `BackendBuildDeploy` immediately after `TerraformApply`. During bootstrap, do not approve the apply unless the plan shows only the listener action transition described above. If the listener is still single-target when backend deployment starts, the buildspec fails before deployment because `ForwardConfig.TargetGroups` is missing or invalid.
 
+## Inactive ASG Scale-Down
+
+Backend deployment scales the inactive ASG to zero before writing the new image tag and launching the replacement instance. The buildspec sets both `MinSize=0` and `DesiredCapacity=0` during this step so an older ASG that still has minimum capacity `1` does not reject the scale-down request.
+
 ## Rollback
 
 Rollback is performed by switching ALB listener weights back to the previous target group. This avoids rebuilding an older Docker image.
