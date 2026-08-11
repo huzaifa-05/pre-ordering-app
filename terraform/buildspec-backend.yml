@@ -60,12 +60,62 @@ phases:
           exit 1
         fi
       - |
-        ACTIVE_TARGET_GROUP_ARN="$(aws elbv2 describe-listeners \
+        LISTENER_ACTION_TYPE="$(aws elbv2 describe-listeners \
           --listener-arns "$ALB_LISTENER_ARN" \
-          --query "Listeners[0].DefaultActions[0].TargetGroupArn" \
+          --query "Listeners[0].DefaultActions[0].Type" \
           --output text)"
 
-        if [ "$ACTIVE_TARGET_GROUP_ARN" = "$BLUE_TARGET_GROUP_ARN" ]; then
+        FORWARD_TARGET_GROUP_COUNT="$(aws elbv2 describe-listeners \
+          --listener-arns "$ALB_LISTENER_ARN" \
+          --query "length(Listeners[0].DefaultActions[0].ForwardConfig.TargetGroups)" \
+          --output text)"
+
+        BLUE_TARGET_WEIGHT="$(aws elbv2 describe-listeners \
+          --listener-arns "$ALB_LISTENER_ARN" \
+          --query "Listeners[0].DefaultActions[0].ForwardConfig.TargetGroups[?TargetGroupArn=='$BLUE_TARGET_GROUP_ARN'].Weight | [0]" \
+          --output text)"
+
+        GREEN_TARGET_WEIGHT="$(aws elbv2 describe-listeners \
+          --listener-arns "$ALB_LISTENER_ARN" \
+          --query "Listeners[0].DefaultActions[0].ForwardConfig.TargetGroups[?TargetGroupArn=='$GREEN_TARGET_GROUP_ARN'].Weight | [0]" \
+          --output text)"
+
+        case "$FORWARD_TARGET_GROUP_COUNT" in
+          ''|None|*[!0-9]*)
+            echo "ALB listener forward target group count is missing or invalid."
+            echo "Action type: $LISTENER_ACTION_TYPE"
+            echo "Forward target group count: $FORWARD_TARGET_GROUP_COUNT"
+            exit 1
+            ;;
+        esac
+
+        if [ "$LISTENER_ACTION_TYPE" != "forward" ] || [ "$FORWARD_TARGET_GROUP_COUNT" -ne 2 ]; then
+          echo "ALB listener does not have the expected weighted forward configuration."
+          echo "Action type: $LISTENER_ACTION_TYPE"
+          echo "Forward target group count: $FORWARD_TARGET_GROUP_COUNT"
+          exit 1
+        fi
+
+        case "$BLUE_TARGET_WEIGHT" in
+          ''|None|*[!0-9]*)
+            echo "Expected blue target group ARN is missing or has an invalid weight."
+            echo "Blue target weight: $BLUE_TARGET_WEIGHT"
+            exit 1
+            ;;
+        esac
+
+        case "$GREEN_TARGET_WEIGHT" in
+          ''|None|*[!0-9]*)
+            echo "Expected green target group ARN is missing or has an invalid weight."
+            echo "Green target weight: $GREEN_TARGET_WEIGHT"
+            exit 1
+            ;;
+        esac
+
+        echo "Blue target weight: $BLUE_TARGET_WEIGHT"
+        echo "Green target weight: $GREEN_TARGET_WEIGHT"
+
+        if [ "$BLUE_TARGET_WEIGHT" -eq 100 ] && [ "$GREEN_TARGET_WEIGHT" -eq 0 ]; then
           ACTIVE_COLOR="BLUE"
           INACTIVE_COLOR="GREEN"
           ACTIVE_TG_ARN="$BLUE_TARGET_GROUP_ARN"
@@ -73,7 +123,7 @@ phases:
           ACTIVE_ASG_NAME="$BLUE_ASG_NAME"
           INACTIVE_ASG_NAME="$GREEN_ASG_NAME"
           INACTIVE_IMAGE_TAG_PARAMETER_NAME="$GREEN_IMAGE_TAG_PARAMETER_NAME"
-        elif [ "$ACTIVE_TARGET_GROUP_ARN" = "$GREEN_TARGET_GROUP_ARN" ]; then
+        elif [ "$GREEN_TARGET_WEIGHT" -eq 100 ] && [ "$BLUE_TARGET_WEIGHT" -eq 0 ]; then
           ACTIVE_COLOR="GREEN"
           INACTIVE_COLOR="BLUE"
           ACTIVE_TG_ARN="$GREEN_TARGET_GROUP_ARN"
@@ -82,8 +132,9 @@ phases:
           INACTIVE_ASG_NAME="$BLUE_ASG_NAME"
           INACTIVE_IMAGE_TAG_PARAMETER_NAME="$BLUE_IMAGE_TAG_PARAMETER_NAME"
         else
-          echo "ALB listener is not pointing to a known blue or green target group."
-          echo "Current target group: $ACTIVE_TARGET_GROUP_ARN"
+          echo "ALB listener target group weights are not in an expected 100/0 or 0/100 state."
+          echo "Blue target weight: $BLUE_TARGET_WEIGHT"
+          echo "Green target weight: $GREEN_TARGET_WEIGHT"
           exit 1
         fi
 
@@ -200,16 +251,49 @@ phases:
       - |
         echo "Smoke validation: target group health is healthy for $INACTIVE_COLOR."
         echo "Switching ALB listener to $INACTIVE_COLOR..."
+        if [ "$INACTIVE_COLOR" = "BLUE" ]; then
+          BLUE_TARGET_WEIGHT_AFTER=100
+          GREEN_TARGET_WEIGHT_AFTER=0
+        else
+          BLUE_TARGET_WEIGHT_AFTER=0
+          GREEN_TARGET_WEIGHT_AFTER=100
+        fi
+
+        FORWARD_ACTIONS="$(printf '[{"Type":"forward","ForwardConfig":{"TargetGroups":[{"TargetGroupArn":"%s","Weight":%s},{"TargetGroupArn":"%s","Weight":%s}]}}]' "$BLUE_TARGET_GROUP_ARN" "$BLUE_TARGET_WEIGHT_AFTER" "$GREEN_TARGET_GROUP_ARN" "$GREEN_TARGET_WEIGHT_AFTER")"
+
         aws elbv2 modify-listener \
           --listener-arn "$ALB_LISTENER_ARN" \
-          --default-actions Type=forward,TargetGroupArn="$INACTIVE_TG_ARN"
+          --default-actions "$FORWARD_ACTIONS"
 
-        NEW_ACTIVE_TARGET_GROUP_ARN="$(aws elbv2 describe-listeners \
+        NEW_BLUE_TARGET_WEIGHT="$(aws elbv2 describe-listeners \
           --listener-arns "$ALB_LISTENER_ARN" \
-          --query "Listeners[0].DefaultActions[0].TargetGroupArn" \
+          --query "Listeners[0].DefaultActions[0].ForwardConfig.TargetGroups[?TargetGroupArn=='$BLUE_TARGET_GROUP_ARN'].Weight | [0]" \
           --output text)"
 
-        if [ "$NEW_ACTIVE_TARGET_GROUP_ARN" != "$INACTIVE_TG_ARN" ]; then
+        NEW_GREEN_TARGET_WEIGHT="$(aws elbv2 describe-listeners \
+          --listener-arns "$ALB_LISTENER_ARN" \
+          --query "Listeners[0].DefaultActions[0].ForwardConfig.TargetGroups[?TargetGroupArn=='$GREEN_TARGET_GROUP_ARN'].Weight | [0]" \
+          --output text)"
+
+        echo "Blue target weight after switch: $NEW_BLUE_TARGET_WEIGHT"
+        echo "Green target weight after switch: $NEW_GREEN_TARGET_WEIGHT"
+
+        case "$NEW_BLUE_TARGET_WEIGHT" in
+          ''|None|*[!0-9]*)
+            echo "Blue target group weight is missing or invalid after switch."
+            exit 1
+            ;;
+        esac
+
+        case "$NEW_GREEN_TARGET_WEIGHT" in
+          ''|None|*[!0-9]*)
+            echo "Green target group weight is missing or invalid after switch."
+            exit 1
+            ;;
+        esac
+
+        if [ "$NEW_BLUE_TARGET_WEIGHT" -ne "$BLUE_TARGET_WEIGHT_AFTER" ] || \
+           [ "$NEW_GREEN_TARGET_WEIGHT" -ne "$GREEN_TARGET_WEIGHT_AFTER" ]; then
           echo "Listener switch verification failed."
           exit 1
         fi

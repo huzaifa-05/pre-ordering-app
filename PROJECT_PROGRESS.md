@@ -1016,6 +1016,10 @@ Determine active color from ALB listener
 
 v
 
+Compare blue/green listener weights
+
+v
+
 Update inactive color SSM image tag
 
 v
@@ -1028,7 +1032,7 @@ Wait for inactive target group health
 
 v
 
-Switch ALB listener to inactive target group
+Switch ALB listener weights to inactive target group
 
 v
 
@@ -1043,21 +1047,31 @@ Previous environment retained for rollback
 - Green Auto Scaling Group
 - Blue image tag SSM parameter
 - Green image tag SSM parameter
-- One shared ALB listener that forwards production traffic to exactly one target group at a time
+- One shared ALB listener with a weighted forward action that always includes both target groups
+
+The active environment has listener weight `100`, and the inactive environment has listener weight `0`. Keeping both target groups attached prevents the inactive target group from appearing as `unused / Target.NotInUse` while still preventing it from receiving production traffic.
 
 CloudFront continues to send `/api/*` traffic to the ALB. CloudFront does not know whether blue or green is active.
 
+## Health Check Behavior
+
+The first blue-green backend deployment failed because the green target group existed and had an EC2 target, but it was not referenced by any ALB listener rule. ALB reported that target group as `unused / Target.NotInUse`, so CodeBuild timed out waiting for green target health.
+
+The weighted listener configuration fixes this by permanently referencing both blue and green target groups. A target group with weight `0` receives no production traffic, but remains associated with the load balancer so ALB can perform target health monitoring before the deployment switches traffic.
+
 ## Rollback
 
-Rollback is performed by switching the ALB listener back to the previous target group. This avoids rebuilding an older Docker image.
+Rollback is performed by switching ALB listener weights back to the previous target group. This avoids rebuilding an older Docker image.
 
-Example rollback command:
+Example rollback from green back to blue:
 
 ```text
 aws elbv2 modify-listener \
   --listener-arn <backend-listener-arn> \
-  --default-actions Type=forward,TargetGroupArn=<previous-target-group-arn>
+  --default-actions '[{"Type":"forward","ForwardConfig":{"TargetGroups":[{"TargetGroupArn":"<blue-target-group-arn>","Weight":100},{"TargetGroupArn":"<green-target-group-arn>","Weight":0}]}}]'
 ```
+
+Rollback from blue back to green uses the same command shape with blue weight `0` and green weight `100`. Keep both target groups configured in the `ForwardConfig`.
 
 The previous environment is intentionally retained after traffic switch for manual rollback. This increases short-term EC2 cost because both blue and green may be running during the rollback window.
 

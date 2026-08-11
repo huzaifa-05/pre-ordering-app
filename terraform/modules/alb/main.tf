@@ -73,16 +73,27 @@ resource "aws_lb_target_group" "green" {
   }
 }
 
-# HTTP listener for CloudFront traffic. Blue is the initial live target.
+# HTTP listener for CloudFront traffic. Blue is the initial live target; green
+# remains attached with zero traffic so ALB health checks can run before switch.
 resource "aws_lb_listener" "http" {
   load_balancer_arn = aws_lb.main.arn
   port              = 80
   protocol          = "HTTP"
 
-  # Forward requests to backend
   default_action {
-    type             = "forward"
-    target_group_arn = aws_lb_target_group.backend.arn
+    type = "forward"
+
+    forward {
+      target_group {
+        arn    = aws_lb_target_group.backend.arn
+        weight = 100
+      }
+
+      target_group {
+        arn    = aws_lb_target_group.green.arn
+        weight = 0
+      }
+    }
   }
 
   lifecycle {
