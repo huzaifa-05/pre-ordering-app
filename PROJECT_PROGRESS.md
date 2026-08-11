@@ -146,10 +146,9 @@ The dev Terraform root currently instantiates these modules:
 - `module.compute`
 - `module.auth`
 - `module.frontend_hosting`
+- `module.database`
 
-The following module directories exist but are not yet wired into `terraform/environments/dev/main.tf`:
-
-- `database`
+All current Terraform module directories are wired into `terraform/environments/dev/main.tf`.
 
 ---
 
@@ -448,12 +447,13 @@ Completed
 
 ### Purpose
 
-The ALB module exposes the backend API through a public Application Load Balancer and forwards HTTP traffic to the backend target group.
+The ALB module exposes the backend API through a public Application Load Balancer and forwards HTTP traffic to the active blue or green backend target group.
 
 ### AWS Resources Created
 
 - Application Load Balancer
-- Backend Target Group
+- Blue Backend Target Group
+- Green Backend Target Group
 - HTTP Listener
 - Backend health check configuration
 
@@ -477,7 +477,9 @@ The ALB module exposes the backend API through a public Application Load Balance
 
 - `alb_arn`
 - `alb_dns_name`
-- `target_group_arn`
+- `blue_target_group_arn`
+- `green_target_group_arn`
+- `listener_arn`
 
 ### Dependencies
 
@@ -495,14 +497,17 @@ Completed
 
 ### Purpose
 
-The Compute module provisions the backend runtime layer using EC2, Auto Scaling, and ECR-based container bootstrap.
+The Compute module provisions the backend runtime layer using EC2, Auto Scaling, ECR-based container bootstrap, and blue-green release isolation.
 
 ### AWS Resources Created
 
 - EC2 IAM Role and Instance Profile
-- Launch Template
-- Auto Scaling Group
-- CPU target tracking scaling policy
+- Blue Launch Template
+- Green Launch Template
+- Blue Auto Scaling Group
+- Green Auto Scaling Group
+- CPU target tracking scaling policies
+- Blue and green SSM image tag parameters
 - SSM and ECR read-only IAM policy attachments
 
 ### Terraform Resources Created
@@ -524,7 +529,8 @@ The Compute module provisions the backend runtime layer using EC2, Auto Scaling,
 - `environment`
 - `private_subnet_ids`
 - `ec2_security_group_id`
-- `target_group_arn`
+- `blue_target_group_arn`
+- `green_target_group_arn`
 - `repository_url`
 - `backend_port`
 - `instance_type`
@@ -536,15 +542,21 @@ The Compute module provisions the backend runtime layer using EC2, Auto Scaling,
 
 ### Outputs
 
-- `autoscaling_group_name`
-- `launch_template_id`
+- `blue_autoscaling_group_name`
+- `green_autoscaling_group_name`
+- `blue_launch_template_id`
+- `green_launch_template_id`
 - `ec2_role_arn`
+- `blue_image_tag_parameter_name`
+- `green_image_tag_parameter_name`
+- `blue_image_tag_parameter_arn`
+- `green_image_tag_parameter_arn`
 
 ### Dependencies
 
 - Networking private subnet IDs.
 - Security module EC2 security group ID.
-- ALB target group ARN.
+- ALB blue and green target group ARNs.
 - ECR repository URL.
 
 ### Current Status
@@ -646,25 +658,27 @@ Completed
 
 ---
 
-# Pending Terraform Modules
-
-The following modules are not yet marked as completed in this handoff document:
+# Database Module
 
 ## Database
 
-### Planned Purpose
+### Purpose
 
-Create the managed MySQL database layer for menu and order data.
+The Database module creates the Aurora MySQL data layer for menu and order data.
 
-### Planned AWS Resources
+### AWS Resources Created
 
-- RDS MySQL database
+- Aurora MySQL cluster
+- Aurora writer instance
+- Aurora reader instance
 - DB subnet group
-- Database configuration and outputs required by the backend
+- AWS-managed master user secret in Secrets Manager
+- Encrypted database storage
+- Backup and deletion-protection configuration
 
 ### Current Status
 
-Scaffolded only. Not implemented and not deployed.
+Completed and wired into the dev Terraform root.
 
 ---
 
@@ -758,11 +772,11 @@ Application Load Balancer
 
 v
 
-Backend Compute
+Blue or Green Backend Compute
 
 v
 
-RDS MySQL (pending)
+Aurora MySQL
 ```
 
 ---
@@ -807,61 +821,19 @@ v
 Frontend Hosting
 ```
 
-Planned full dependency chain:
-
-```text
-Storage
-
-v
-
-Pipeline
-
-v
-
-Networking
-
-v
-
-Security
-
-v
-
-ECR
-
-v
-
-Database
-
-v
-
-Compute
-
-v
-
-ALB
-
-v
-
-Authentication
-
-v
-
-Frontend Hosting
-```
-
 ---
 
 # Remaining Modules and Milestones
 
 - [x] Security
 - [x] ECR
-- [ ] Database
+- [x] Database
 - [x] Compute
 - [x] Application Load Balancer
 - [x] Cognito Authentication
 - [x] Frontend Hosting
-- [ ] Backend pipeline integration
-- [ ] Frontend pipeline integration
+- [x] Backend pipeline integration
+- [x] Frontend pipeline integration
 - [ ] Final Integration
 - [ ] Testing
 - [ ] Documentation
@@ -1000,6 +972,96 @@ v
 
 Frontend Updated
 ```
+
+---
+
+# Blue-Green Backend Deployment
+
+The backend deployment strategy has been converted from ASG rolling instance refresh to blue-green deployment using the existing ALB, target groups, Auto Scaling Groups, ECR, SSM Parameter Store, and CodeBuild pipeline.
+
+## Previous Deployment Model
+
+```text
+Git SHA
+
+v
+
+ECR image
+
+v
+
+Single SSM image tag parameter
+
+v
+
+ASG Instance Refresh
+
+v
+
+Existing backend ASG replaces instances
+```
+
+## Current Deployment Model
+
+```text
+Git SHA
+
+v
+
+ECR image
+
+v
+
+Determine active color from ALB listener
+
+v
+
+Update inactive color SSM image tag
+
+v
+
+Prepare inactive ASG
+
+v
+
+Wait for inactive target group health
+
+v
+
+Switch ALB listener to inactive target group
+
+v
+
+Previous environment retained for rollback
+```
+
+## Blue-Green Resources
+
+- Blue Target Group
+- Green Target Group
+- Blue Auto Scaling Group
+- Green Auto Scaling Group
+- Blue image tag SSM parameter
+- Green image tag SSM parameter
+- One shared ALB listener that forwards production traffic to exactly one target group at a time
+
+CloudFront continues to send `/api/*` traffic to the ALB. CloudFront does not know whether blue or green is active.
+
+## Rollback
+
+Rollback is performed by switching the ALB listener back to the previous target group. This avoids rebuilding an older Docker image.
+
+Example rollback command:
+
+```text
+aws elbv2 modify-listener \
+  --listener-arn <backend-listener-arn> \
+  --default-actions Type=forward,TargetGroupArn=<previous-target-group-arn>
+```
+
+The previous environment is intentionally retained after traffic switch for manual rollback. This increases short-term EC2 cost because both blue and green may be running during the rollback window.
+
+Database schema changes during blue-green deployments must remain backward-compatible while both backend versions may exist.
 
 ---
 

@@ -22,9 +22,15 @@ variable "ec2_security_group_id" {
   type        = string
 }
 
-# ALB target group ARN
-variable "target_group_arn" {
-  description = "Target group ARN used by the Auto Scaling Group."
+# Blue target group ARN
+variable "blue_target_group_arn" {
+  description = "Target group ARN used by the blue Auto Scaling Group."
+  type        = string
+}
+
+# Green target group ARN
+variable "green_target_group_arn" {
+  description = "Target group ARN used by the green Auto Scaling Group."
   type        = string
 }
 

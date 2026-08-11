@@ -20,17 +20,24 @@ module "pipeline" {
   artifact_bucket_arn  = module.storage.pipeline_artifact_bucket_arn
   state_bucket_arn     = module.storage.terraform_state_bucket_arn
 
-  ecr_repository_url               = module.ecr.repository_url
-  ecr_repository_arn               = module.ecr.repository_arn
-  autoscaling_group_name           = module.compute.autoscaling_group_name
-  backend_image_tag_parameter_name = module.compute.backend_image_tag_parameter_name
-  backend_image_tag_parameter_arn  = module.compute.backend_image_tag_parameter_arn
-  frontend_bucket_name             = module.frontend_hosting.bucket_name
-  frontend_bucket_arn              = module.frontend_hosting.bucket_arn
-  cloudfront_distribution_id       = module.frontend_hosting.cloudfront_distribution_id
-  cognito_user_pool_id             = module.auth.user_pool_id
-  cognito_user_pool_client_id      = module.auth.user_pool_client_id
-  backend_api_url                  = "/api"
+  ecr_repository_url             = module.ecr.repository_url
+  ecr_repository_arn             = module.ecr.repository_arn
+  blue_autoscaling_group_name    = module.compute.blue_autoscaling_group_name
+  green_autoscaling_group_name   = module.compute.green_autoscaling_group_name
+  backend_desired_capacity       = var.desired_capacity
+  blue_image_tag_parameter_name  = module.compute.blue_image_tag_parameter_name
+  green_image_tag_parameter_name = module.compute.green_image_tag_parameter_name
+  blue_image_tag_parameter_arn   = module.compute.blue_image_tag_parameter_arn
+  green_image_tag_parameter_arn  = module.compute.green_image_tag_parameter_arn
+  blue_target_group_arn          = module.alb.blue_target_group_arn
+  green_target_group_arn         = module.alb.green_target_group_arn
+  alb_listener_arn               = module.alb.listener_arn
+  frontend_bucket_name           = module.frontend_hosting.bucket_name
+  frontend_bucket_arn            = module.frontend_hosting.bucket_arn
+  cloudfront_distribution_id     = module.frontend_hosting.cloudfront_distribution_id
+  cognito_user_pool_id           = module.auth.user_pool_id
+  cognito_user_pool_client_id    = module.auth.user_pool_client_id
+  backend_api_url                = "/api"
 }
 
 # Networking module
@@ -87,7 +94,8 @@ module "compute" {
   environment            = var.environment
   private_subnet_ids     = module.networking.private_subnet_ids
   ec2_security_group_id  = module.security.ec2_security_group_id
-  target_group_arn       = module.alb.target_group_arn
+  blue_target_group_arn  = module.alb.blue_target_group_arn
+  green_target_group_arn = module.alb.green_target_group_arn
   repository_url         = module.ecr.repository_url
   backend_port           = var.backend_port
   instance_type          = var.instance_type

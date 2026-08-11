@@ -10,8 +10,20 @@ output "alb_dns_name" {
   value       = aws_lb.main.dns_name
 }
 
-# Backend target group ARN
-output "target_group_arn" {
-  description = "ARN of the backend target group."
+# Blue target group ARN
+output "blue_target_group_arn" {
+  description = "ARN of the blue backend target group."
   value       = aws_lb_target_group.backend.arn
+}
+
+# Green target group ARN
+output "green_target_group_arn" {
+  description = "ARN of the green backend target group."
+  value       = aws_lb_target_group.green.arn
+}
+
+# ALB listener ARN
+output "listener_arn" {
+  description = "ARN of the backend ALB listener."
+  value       = aws_lb_listener.http.arn
 }

@@ -80,24 +80,46 @@ data "aws_iam_policy_document" "application_codebuild" {
   }
 
   statement {
-    sid    = "UpdateBackendImageTag"
+    sid    = "UpdateBackendImageTags"
     effect = "Allow"
     actions = [
       "ssm:GetParameter",
       "ssm:PutParameter"
     ]
-    resources = [var.backend_image_tag_parameter_arn]
+    resources = [
+      var.blue_image_tag_parameter_arn,
+      var.green_image_tag_parameter_arn
+    ]
   }
 
   statement {
-    sid    = "RefreshBackendAsg"
+    sid    = "ReadBlueGreenDeploymentState"
     effect = "Allow"
     actions = [
-      "autoscaling:DescribeAutoScalingGroups",
-      "autoscaling:DescribeInstanceRefreshes",
-      "autoscaling:StartInstanceRefresh"
+      "elasticloadbalancing:DescribeListeners",
+      "elasticloadbalancing:DescribeTargetHealth",
+      "autoscaling:DescribeAutoScalingGroups"
     ]
     resources = ["*"]
+  }
+
+  statement {
+    sid       = "SwitchBackendListener"
+    effect    = "Allow"
+    actions   = ["elasticloadbalancing:ModifyListener"]
+    resources = [var.alb_listener_arn]
+  }
+
+  statement {
+    sid    = "ScaleBlueGreenAsgs"
+    effect = "Allow"
+    actions = [
+      "autoscaling:UpdateAutoScalingGroup"
+    ]
+    resources = [
+      "arn:aws:autoscaling:${var.aws_region}:${data.aws_caller_identity.current.account_id}:autoScalingGroup:*:autoScalingGroupName/${var.blue_autoscaling_group_name}",
+      "arn:aws:autoscaling:${var.aws_region}:${data.aws_caller_identity.current.account_id}:autoScalingGroup:*:autoScalingGroupName/${var.green_autoscaling_group_name}"
+    ]
   }
 
   statement {
@@ -307,13 +329,43 @@ resource "aws_codebuild_project" "backend_deploy" {
     }
 
     environment_variable {
-      name  = "AUTOSCALING_GROUP_NAME"
-      value = var.autoscaling_group_name
+      name  = "ALB_LISTENER_ARN"
+      value = var.alb_listener_arn
     }
 
     environment_variable {
-      name  = "BACKEND_IMAGE_TAG_PARAMETER_NAME"
-      value = var.backend_image_tag_parameter_name
+      name  = "BLUE_TARGET_GROUP_ARN"
+      value = var.blue_target_group_arn
+    }
+
+    environment_variable {
+      name  = "GREEN_TARGET_GROUP_ARN"
+      value = var.green_target_group_arn
+    }
+
+    environment_variable {
+      name  = "BLUE_ASG_NAME"
+      value = var.blue_autoscaling_group_name
+    }
+
+    environment_variable {
+      name  = "GREEN_ASG_NAME"
+      value = var.green_autoscaling_group_name
+    }
+
+    environment_variable {
+      name  = "BLUE_IMAGE_TAG_PARAMETER_NAME"
+      value = var.blue_image_tag_parameter_name
+    }
+
+    environment_variable {
+      name  = "GREEN_IMAGE_TAG_PARAMETER_NAME"
+      value = var.green_image_tag_parameter_name
+    }
+
+    environment_variable {
+      name  = "BACKEND_DESIRED_CAPACITY"
+      value = tostring(var.backend_desired_capacity)
     }
   }
 

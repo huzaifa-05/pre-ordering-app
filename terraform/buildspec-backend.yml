@@ -38,13 +38,195 @@ phases:
       - 'echo "========== BACKEND DEPLOY =========="'
       - docker push "$ECR_REPOSITORY_URL:$IMAGE_TAG"
       - |
+        REQUIRED_VARS="
+        ALB_LISTENER_ARN
+        BLUE_TARGET_GROUP_ARN
+        GREEN_TARGET_GROUP_ARN
+        BLUE_ASG_NAME
+        GREEN_ASG_NAME
+        BLUE_IMAGE_TAG_PARAMETER_NAME
+        GREEN_IMAGE_TAG_PARAMETER_NAME
+        BACKEND_DESIRED_CAPACITY
+        "
+        for name in $REQUIRED_VARS; do
+          if [ -z "${!name:-}" ]; then
+            echo "Missing required environment variable: $name"
+            exit 1
+          fi
+        done
+
+        if [ "$BACKEND_DESIRED_CAPACITY" -lt 1 ]; then
+          echo "BACKEND_DESIRED_CAPACITY must be at least 1 for blue-green deployment."
+          exit 1
+        fi
+      - |
+        ACTIVE_TARGET_GROUP_ARN="$(aws elbv2 describe-listeners \
+          --listener-arns "$ALB_LISTENER_ARN" \
+          --query "Listeners[0].DefaultActions[0].TargetGroupArn" \
+          --output text)"
+
+        if [ "$ACTIVE_TARGET_GROUP_ARN" = "$BLUE_TARGET_GROUP_ARN" ]; then
+          ACTIVE_COLOR="BLUE"
+          INACTIVE_COLOR="GREEN"
+          ACTIVE_TG_ARN="$BLUE_TARGET_GROUP_ARN"
+          INACTIVE_TG_ARN="$GREEN_TARGET_GROUP_ARN"
+          ACTIVE_ASG_NAME="$BLUE_ASG_NAME"
+          INACTIVE_ASG_NAME="$GREEN_ASG_NAME"
+          INACTIVE_IMAGE_TAG_PARAMETER_NAME="$GREEN_IMAGE_TAG_PARAMETER_NAME"
+        elif [ "$ACTIVE_TARGET_GROUP_ARN" = "$GREEN_TARGET_GROUP_ARN" ]; then
+          ACTIVE_COLOR="GREEN"
+          INACTIVE_COLOR="BLUE"
+          ACTIVE_TG_ARN="$GREEN_TARGET_GROUP_ARN"
+          INACTIVE_TG_ARN="$BLUE_TARGET_GROUP_ARN"
+          ACTIVE_ASG_NAME="$GREEN_ASG_NAME"
+          INACTIVE_ASG_NAME="$BLUE_ASG_NAME"
+          INACTIVE_IMAGE_TAG_PARAMETER_NAME="$BLUE_IMAGE_TAG_PARAMETER_NAME"
+        else
+          echo "ALB listener is not pointing to a known blue or green target group."
+          echo "Current target group: $ACTIVE_TARGET_GROUP_ARN"
+          exit 1
+        fi
+
+        echo "Current active environment: $ACTIVE_COLOR"
+        echo "Deployment target: $INACTIVE_COLOR"
+        echo "Active ASG: $ACTIVE_ASG_NAME"
+        echo "Inactive ASG: $INACTIVE_ASG_NAME"
+      - |
+        echo "Scaling inactive environment down before preparing new release..."
+        aws autoscaling update-auto-scaling-group \
+          --auto-scaling-group-name "$INACTIVE_ASG_NAME" \
+          --desired-capacity 0
+
+        for attempt in $(seq 1 30); do
+          ASG_STATE="$(aws autoscaling describe-auto-scaling-groups \
+            --auto-scaling-group-names "$INACTIVE_ASG_NAME" \
+            --query "AutoScalingGroups[0].[DesiredCapacity,length(Instances[?LifecycleState=='InService' || LifecycleState=='Pending' || LifecycleState=='Pending:Wait' || LifecycleState=='Pending:Proceed' || LifecycleState=='Terminating' || LifecycleState=='Terminating:Wait' || LifecycleState=='Terminating:Proceed'])]" \
+            --output text)"
+          DESIRED_CAPACITY="$(echo "$ASG_STATE" | awk '{print $1}')"
+          LIVE_INSTANCE_COUNT="$(echo "$ASG_STATE" | awk '{print $2}')"
+
+          echo "Scale-down attempt $attempt: desired=$DESIRED_CAPACITY live_instances=$LIVE_INSTANCE_COUNT"
+
+          if [ "$DESIRED_CAPACITY" -eq 0 ] && [ "$LIVE_INSTANCE_COUNT" -eq 0 ]; then
+            echo "Inactive environment is fully scaled down."
+            break
+          fi
+
+          if [ "$attempt" -eq 30 ]; then
+            echo "Timed out waiting for inactive environment to scale down."
+            aws autoscaling describe-auto-scaling-groups \
+              --auto-scaling-group-names "$INACTIVE_ASG_NAME" \
+              --query "AutoScalingGroups[0].Instances[*].[InstanceId,LifecycleState,HealthStatus]" \
+              --output table
+            exit 1
+          fi
+
+          sleep 10
+        done
+      - |
+        echo "Updating inactive image tag parameter..."
         aws ssm put-parameter \
-          --name "$BACKEND_IMAGE_TAG_PARAMETER_NAME" \
+          --name "$INACTIVE_IMAGE_TAG_PARAMETER_NAME" \
           --type "String" \
           --value "$IMAGE_TAG" \
           --overwrite
+
+        echo "Scaling inactive environment to $BACKEND_DESIRED_CAPACITY..."
+        aws autoscaling update-auto-scaling-group \
+          --auto-scaling-group-name "$INACTIVE_ASG_NAME" \
+          --desired-capacity "$BACKEND_DESIRED_CAPACITY"
       - |
-        aws autoscaling start-instance-refresh \
-          --auto-scaling-group-name "$AUTOSCALING_GROUP_NAME" \
-          --preferences '{"MinHealthyPercentage":50,"InstanceWarmup":180}'
-      - 'echo "Backend deployment started with image tag $IMAGE_TAG."'
+        echo "Waiting for inactive ASG capacity..."
+        for attempt in $(seq 1 40); do
+          ASG_STATE="$(aws autoscaling describe-auto-scaling-groups \
+            --auto-scaling-group-names "$INACTIVE_ASG_NAME" \
+            --query "AutoScalingGroups[0].[DesiredCapacity,length(Instances),length(Instances[?LifecycleState=='InService' && HealthStatus=='Healthy'])]" \
+            --output text)"
+          DESIRED_CAPACITY="$(echo "$ASG_STATE" | awk '{print $1}')"
+          TOTAL_INSTANCE_COUNT="$(echo "$ASG_STATE" | awk '{print $2}')"
+          INSERVICE_HEALTHY_COUNT="$(echo "$ASG_STATE" | awk '{print $3}')"
+
+          echo "Scale-up attempt $attempt: desired=$DESIRED_CAPACITY total=$TOTAL_INSTANCE_COUNT inservice_healthy=$INSERVICE_HEALTHY_COUNT"
+
+          if [ "$DESIRED_CAPACITY" -eq "$BACKEND_DESIRED_CAPACITY" ] && \
+             [ "$TOTAL_INSTANCE_COUNT" -ge "$BACKEND_DESIRED_CAPACITY" ] && \
+             [ "$INSERVICE_HEALTHY_COUNT" -ge "$BACKEND_DESIRED_CAPACITY" ]; then
+            echo "Inactive ASG capacity is ready."
+            break
+          fi
+
+          if [ "$attempt" -eq 40 ]; then
+            echo "Timed out waiting for inactive ASG capacity."
+            aws autoscaling describe-auto-scaling-groups \
+              --auto-scaling-group-names "$INACTIVE_ASG_NAME" \
+              --query "AutoScalingGroups[0].Instances[*].[InstanceId,LifecycleState,HealthStatus]" \
+              --output table
+            exit 1
+          fi
+
+          sleep 15
+        done
+      - |
+        echo "Waiting for inactive target group health..."
+        for attempt in $(seq 1 40); do
+          HEALTHY_COUNT="$(aws elbv2 describe-target-health \
+            --target-group-arn "$INACTIVE_TG_ARN" \
+            --query "length(TargetHealthDescriptions[?TargetHealth.State=='healthy'])" \
+            --output text)"
+
+          TOTAL_COUNT="$(aws elbv2 describe-target-health \
+            --target-group-arn "$INACTIVE_TG_ARN" \
+            --query "length(TargetHealthDescriptions)" \
+            --output text)"
+
+          echo "Inactive health check attempt $attempt: healthy=$HEALTHY_COUNT total=$TOTAL_COUNT"
+
+          if [ "$HEALTHY_COUNT" -ge "$BACKEND_DESIRED_CAPACITY" ]; then
+            echo "Inactive target group is healthy."
+            break
+          fi
+
+          if [ "$attempt" -eq 40 ]; then
+            echo "Timed out waiting for inactive target group to become healthy."
+            aws elbv2 describe-target-health \
+              --target-group-arn "$INACTIVE_TG_ARN" \
+              --query "TargetHealthDescriptions[*].[Target.Id,TargetHealth.State,TargetHealth.Reason,TargetHealth.Description]" \
+              --output table
+            exit 1
+          fi
+
+          sleep 15
+        done
+      - |
+        echo "Smoke validation: target group health is healthy for $INACTIVE_COLOR."
+        echo "Switching ALB listener to $INACTIVE_COLOR..."
+        aws elbv2 modify-listener \
+          --listener-arn "$ALB_LISTENER_ARN" \
+          --default-actions Type=forward,TargetGroupArn="$INACTIVE_TG_ARN"
+
+        NEW_ACTIVE_TARGET_GROUP_ARN="$(aws elbv2 describe-listeners \
+          --listener-arns "$ALB_LISTENER_ARN" \
+          --query "Listeners[0].DefaultActions[0].TargetGroupArn" \
+          --output text)"
+
+        if [ "$NEW_ACTIVE_TARGET_GROUP_ARN" != "$INACTIVE_TG_ARN" ]; then
+          echo "Listener switch verification failed."
+          exit 1
+        fi
+      - |
+        echo "Verifying newly active target group health..."
+        HEALTHY_COUNT="$(aws elbv2 describe-target-health \
+          --target-group-arn "$INACTIVE_TG_ARN" \
+          --query "length(TargetHealthDescriptions[?TargetHealth.State=='healthy'])" \
+          --output text)"
+
+        if [ "$HEALTHY_COUNT" -lt "$BACKEND_DESIRED_CAPACITY" ]; then
+          echo "New active target group does not have enough healthy targets after switch."
+          exit 1
+        fi
+
+        echo "Blue-green deployment completed."
+        echo "Previous environment: $ACTIVE_COLOR"
+        echo "Current environment: $INACTIVE_COLOR"
+        echo "Image tag: $IMAGE_TAG"
+        echo "Previous environment retained for rollback."

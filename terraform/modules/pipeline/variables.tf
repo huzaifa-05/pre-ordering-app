@@ -53,18 +53,53 @@ variable "ecr_repository_arn" {
   type        = string
 }
 
-variable "autoscaling_group_name" {
-  description = "Name of the backend Auto Scaling Group."
+variable "blue_autoscaling_group_name" {
+  description = "Name of the blue backend Auto Scaling Group."
   type        = string
 }
 
-variable "backend_image_tag_parameter_name" {
-  description = "Name of the SSM parameter storing the backend image tag."
+variable "green_autoscaling_group_name" {
+  description = "Name of the green backend Auto Scaling Group."
   type        = string
 }
 
-variable "backend_image_tag_parameter_arn" {
-  description = "ARN of the SSM parameter storing the backend image tag."
+variable "backend_desired_capacity" {
+  description = "Desired backend capacity used when preparing the inactive environment."
+  type        = number
+}
+
+variable "blue_image_tag_parameter_name" {
+  description = "Name of the SSM parameter storing the blue backend image tag."
+  type        = string
+}
+
+variable "green_image_tag_parameter_name" {
+  description = "Name of the SSM parameter storing the green backend image tag."
+  type        = string
+}
+
+variable "blue_image_tag_parameter_arn" {
+  description = "ARN of the SSM parameter storing the blue backend image tag."
+  type        = string
+}
+
+variable "green_image_tag_parameter_arn" {
+  description = "ARN of the SSM parameter storing the green backend image tag."
+  type        = string
+}
+
+variable "blue_target_group_arn" {
+  description = "ARN of the blue backend target group."
+  type        = string
+}
+
+variable "green_target_group_arn" {
+  description = "ARN of the green backend target group."
+  type        = string
+}
+
+variable "alb_listener_arn" {
+  description = "ARN of the backend ALB listener."
   type        = string
 }
 

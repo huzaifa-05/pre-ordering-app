@@ -15,7 +15,7 @@ aws ecr get-login-password --region ${aws_region} \
     --username AWS \
     --password-stdin ${ecr_registry}
 
-# Read desired image tag
+# Read color-specific desired image tag
 IMAGE_TAG=$(aws ssm get-parameter \
   --name ${image_tag_parameter_name} \
   --region ${aws_region} \
@@ -31,6 +31,7 @@ docker run -d \
   --restart unless-stopped \
   -p ${backend_port}:${backend_port} \
   -e AWS_REGION=${aws_region} \
+  -e DEPLOYMENT_COLOR=${deployment_color} \
   -e DB_HOST=${aurora_cluster_endpoint} \
   -e DB_NAME=${database_name} \
   -e DB_SECRET_ARN=${database_secret_arn} \

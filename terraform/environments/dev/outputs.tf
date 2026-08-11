@@ -62,10 +62,34 @@ output "alb_dns_name" {
   description = "DNS name of the Application Load Balancer."
   value       = module.alb.alb_dns_name
 }
-# Backend Auto Scaling Group name
-output "backend_autoscaling_group_name" {
-  description = "Name of the backend Auto Scaling Group."
-  value       = module.compute.autoscaling_group_name
+# Blue backend Auto Scaling Group name
+output "blue_backend_autoscaling_group_name" {
+  description = "Name of the blue backend Auto Scaling Group."
+  value       = module.compute.blue_autoscaling_group_name
+}
+
+# Green backend Auto Scaling Group name
+output "green_backend_autoscaling_group_name" {
+  description = "Name of the green backend Auto Scaling Group."
+  value       = module.compute.green_autoscaling_group_name
+}
+
+# Blue backend target group ARN
+output "blue_backend_target_group_arn" {
+  description = "ARN of the blue backend target group."
+  value       = module.alb.blue_target_group_arn
+}
+
+# Green backend target group ARN
+output "green_backend_target_group_arn" {
+  description = "ARN of the green backend target group."
+  value       = module.alb.green_target_group_arn
+}
+
+# Backend ALB listener ARN
+output "backend_alb_listener_arn" {
+  description = "ARN of the backend ALB listener."
+  value       = module.alb.listener_arn
 }
 
 # Cognito User Pool ID
